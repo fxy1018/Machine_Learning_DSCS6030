@@ -1,0 +1,125 @@
+---
+title: "M4L3_Assignment"
+author: "Xueyi Fan"
+date: "June 13, 2016"
+output: word_document
+---
+#Assignment:
+
+* First, you will use the same dataset you chose for previous assignment (M04 Lesson 02 for the partition (k-means, PAM) and hierarchical clustering) from the he the UC Irvine Machine Learning Repository at https://archive.ics.uci.edu/ml/
+
+* Next, cluster some of your data using EM based clustering and answer the following questions:
+1. How did you choose a model for EM? Evaluate the model performance.
+
+2. Cluster some of your data using EM based clustering that you also used for k-means, PAM, and hierarchical clustering. How do the clustering approaches compare on the same data?
+
+
+In assignment M4L2, I choose the [Breast Cancer Wisconsin (Prognostic) data set](https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/)
+
+Loading the data:
+
+```{r}
+
+data_url <- 'https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wpbc.data'
+
+cancer_data <- read.table(url(data_url), sep = ',')
+#cancer_data<- read.table('wpbc.data.txt', sep=",")
+
+names(cancer_data) <- c('ID number', 'Outcome','Time','radius_mean','texure_mean','perimeter_mean','area_mean','smoothness_mean','compactness_mean','concavity_mean','concave_points_mean','symmetry_mean','fractal_dimension_mean', 'radius_SE','texure_SE','perimeter_SE','area_SE','smoothness_SE','compactness_SE','concavity_SE','concave_points_SE','symmetry_SE','fractal_dimension_SE','radius_worst','texure_worst','perimeter_worst','area_worst','smoothness_worst','compactness_worst','concavity_worst','concave_points_worst','symmetry_worst','fractal_dimension_worst','tumor_size','lymph_node_status') 
+cancer <- data.frame(cancer_data[,4:13])
+head(cancer)
+str(cancer)
+```
+
+In the breast cancer dataset, there are 35 columns. Two of them are factors and others are number. Here I use column 4-13 as the clustering data.
+
+
+```{r}
+library("mclust")
+em_clust <- Mclust(cancer)
+em_clust 
+
+```
+
+
+### 1. How did you choose a model for EM? Evaluate the model performance.
+
+According to the tutorial of [mages' blog](http://www.magesblog.com/2011/12/fitting-distributions-with-r.html), I use fitdistrplus package to fit distributions
+
+```{r}
+
+library("fitdistrplus")
+
+for (i in 1:10){
+  fit <- fitdist(cancer[,i], distr = "norm", method = "mle", discrete = F)
+  cat("This is column ",i)
+  plot(fit)
+}
+
+
+```
+
+The function fitdist will created four graphs: the density plot, Q-Q plot, CDF, P-P plot. According to the results of Q-Q plots, the data from these 10 columns are from normal distribution. So I will choose mixture model which is a mixtrure of Gasussians. 
+
+```{r}
+
+#evaluate the model performance
+summary(em_clust)
+
+# BIC
+plot(em_clust, what = "BIC")
+
+#classification
+plot(em_clust, what = "classification")
+
+#uncertainty
+plot(em_clust, what = "uncertainty")
+
+#density
+plot(em_clust, what = "density")
+
+#BIC
+BIC = mclustBIC(cancer)
+summary(BIC)
+plot(BIC)
+
+#ICL 
+ICL = mclustICL(cancer)
+summary(ICL)
+plot(ICL)
+
+
+```
+
+Based on the result of BIC anD ICL, the EII model of mixtrure of Gasussians has the best performance which has the lowest score of BIC or ICL.
+
+
+
+### 2. Cluster some of your data using EM based clustering that you also used for k-means, PAM, and hierarchical clustering. How do the clustering approaches compare on the same data?
+
+```{r}
+#EM
+table(cancer_data$Outcome, em_clust$classification)
+
+#k-means
+cancer.2.kmeans <- kmeans(cancer, centers = 2)
+table(cancer_data$Outcome, cancer.2.kmeans$cluster)
+
+
+#PAM
+library("cluster")
+cancer.2.pam <- pam(cancer,2)
+table(cancer_data$Outcome, cancer.2.pam$clustering)
+
+#hierarhical clustering
+
+cancer.h.clust <- hclust(d=dist(cancer))
+hclust.2 <- cutree(cancer.h.clust, k=2)
+table(cancer_data$Outcome,hclust.2)
+
+```
+
+According to the confusion matrix, the EM based clustering method and hierarchical clustering method have better performance than k-means and PAM. Most of nonrecur or recur are clustered together well in the EM and hierarchical clustering method.
+
+
+

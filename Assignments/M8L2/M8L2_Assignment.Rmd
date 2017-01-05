@@ -1,0 +1,326 @@
+---
+title: "M8L2_Assignment"
+author: "Xueyi Fan"
+date: "July 10, 2016"
+output: word_document
+---
+
+#Assignment:
+Create regular expressions for the patterns below: 
+
+* Match any of the following punctuation characters in the ASCII table:  !"#$%&'()+,  
+
+* Create one regular expression to match all common misspellings of calendar (see https://en.wikipedia.org/wiki/Wikipedia:Lists_of_common_misspellings/C)
+
+* Create one regular expression to match any character except line breaks.  
+
+* You need to validate a ZIP code (U.S. postal code), allowing both the five-digit and nine-digit (called ZIP+4) formats. The regex should match 02115 and 02115-5515, but not 2115, 2115-5515, 21155515,021155515, etc..
+
+* You need to validate a legit any password for your website. Passwords have the following complexity requirements: Length between 8 and 32 characters, ASCII visible and space characters only, One or more uppercase letters, One or more lowercase letters, One or more special characters (ASCII punctuation)  
+
+
+* Load the file M08_tweets.csv (it is online at  'http://nikbearbrown.com/YouTube/MachineLearning/M08/M08_tweets.csv')
+* Do the following:
+    * Extract a list of the top 9 users (e.g. @NikBearBrown)
+    * Extract a list of the top 9 hashtags (e.g. #Bear)    
+    * Find the top 5 most positve tweets  
+    * Find the top 5 most negative tweets  
+    * Create a world cloud of 100 related tweets      
+    * Which tweets could be classified as game development?   
+
+#Answer:
+Create regular expressions for the patterns below: 
+
+##Match any of the following punctuation characters in the ASCII table:  !"#$%&'()+,  
+
+```
+regular expression:
+
+{[\!\"\#\$\%\&\'\(\)\+]}g
+
+```
+
+##Create one regular expression to match all common misspellings of calendar (see https://en.wikipedia.org/wiki/Wikipedia:Lists_of_common_misspellings/C)
+
+```
+There are four misspellings of calendar. They are "calandar", "calander", "calender", "colander".
+
+regular expression:
+
+{c[oa]l[ae]nd[ae]r}g
+
+```
+
+##Create one regular expression to match any character except line breaks.  
+
+```
+regular expression:
+
+{.}g
+
+```
+
+##You need to validate a ZIP code (U.S. postal code), allowing both the five-digit and nine-digit (called ZIP+4) formats. The regex should match 02115 and 02115-5515, but not 2115, 2115-5515, 21155515,021155515, etc..
+
+```
+regular expression:
+
+{\b[0-9]{5}(?:-[0-9]{4})?\b}g
+
+```
+
+##You need to validate a legit any password for your website. Passwords have the following complexity requirements: Length between 8 and 32 characters, ASCII visible and space characters only, One or more uppercase letters, One or more lowercase letters, One or more special characters (ASCII punctuation)  
+
+```
+Regular expression:
+
+#length between 8 and 32
+{^.{8,32}$}
+
+#ASCII visible and space characters only
+{^[\x20-\x7E]+$}
+
+#One or more uppercase letters
+{[A-Z]+}
+
+#one or more lowercase letters
+{[a-z]+}
+
+#one or more special characters
+{[\!\"\#\$\%\&\'\(\)\*\+\,\\\-\.\/\:\;\<\=\>\?\@\[\\\]\^\_\`\{\|\}\~]+}
+
+```
+##* Load the file M08_tweets.csv (it is online at  'http://nikbearbrown.com/YouTube/MachineLearning/M08/M08_tweets.csv')
+
+```{r}
+library("tm")
+library("wordcloud")
+library("RTextTools")
+
+tweets_url <- "http://nikbearbrown.com/YouTube/MachineLearning/M08/M08_tweets.csv"
+
+tweets <- read.csv(url(tweets_url), header = F)
+str(tweets)
+
+```
+
+Do the following:
+
+###Extract a list of the top 9 users (e.g. @NikBearBrown)
+
+```{r}
+users_re <- function(line){
+  m <- gregexpr("@([_a-zA-Z1-9]+)", line)
+  list <- as.list(regmatches(line,m))
+  list
+}
+
+result <- apply(tweets, 1, users_re)
+length(result)
+user_list <- as.list(NULL)
+
+for (i in (1:85250)){
+  if (!is.na(result[[i]]$V1[1])){
+    user_list <- c(user_list,result[[i]]$V1) 
+  }
+} 
+
+sort(table((unlist(user_list))), decreasing = T)[1:9]
+
+```
+
+
+The top nine of users are @Youtube, @InfoDuniaBahasa, @JuegoDeTronosTM, @HoodieAllen, @FreakingTrue, @SimiMention, @NickiDaily, @DarkestDungeon, @NickiWorldNews 
+
+
+###Extract a list of the top 9 hashtags (e.g. #Bear)  
+
+```{r}
+
+
+hashtags_re <- function(line){
+  m <- gregexpr("#([_a-zA-Z1-9]+)", line)
+  list <- as.list(regmatches(line,m))
+  list
+}
+
+result_hashtag <- apply(tweets, 1, hashtags_re)
+hashtag_list <- as.list(NULL)
+
+for (i in (1:85250)){
+  if (!is.na(result_hashtag[[i]]$V1[1])){
+    hashtag_list <- c(hashtag_list,result_hashtag[[i]]$V1) 
+  }
+} 
+
+sort(table((unlist(hashtag_list))), decreasing = T)[1:9]
+
+```
+The top nine hashtags are #gamedev, #indiedev, #gameinsight, #ipadgames, #KCA, #BigData, #bigdata, #GameDev, #indiegame 
+
+However, among these 9 hashtags, like #gamedev & #GameDev, #BigData & #bigdata, there are actually same content expect the letter case. So I will change all the hashtag to lower case.
+
+```{r}
+
+hashtag_list <- tolower(hashtag_list)
+sort(table((unlist(hashtag_list))), decreasing = T)[1:9]
+
+```
+
+Finally, I got top nine hashtags: #gamedev, #indiedev, #gameinsight, #bigdata, #ipad, #ipadgames, #kca, #game, #android 
+
+#Sentiment Analysis and get the polarity score of each document
+
+```{r}
+
+library("qdap")
+library("e1071")
+
+#pre-poccessing the data
+clean_sub <- function(x){
+  #remove all punctuations
+  gsub("[[:punct:]]", "",
+        #remove all control characters
+        gsub("[[:cntrl:]]", "",
+              #remove all digit
+              gsub("\\d+","",
+                    #remove the hashtag
+                    gsub("#[_a-zA-Z1-9]+", "", 
+                        #remove the users
+                        gsub("@([_a-zA-Z1-9]+)","",
+                            #remove the url
+                            gsub("(https?://[^ ]+)","",x))))))
+  
+}
+
+tweets_clean <- apply(tweets, 1, clean_sub)
+tweets_clean <-as.character(tweets_clean)
+tweets_clean <- stripWhitespace(tweets_clean)
+tweets_clean <- removeWords(tweets_clean, stopwords())
+head(tweets_clean)
+
+ps <- polarity(tweets_clean)
+dim(ps$all)
+ps$all[1:10,]
+
+```
+
+
+###Find the top 5 most positve tweets
+```{r}
+pos_5 <- order(ps$all[,3], decreasing=T) [1:5]
+pos_5
+tweets[pos_5,]
+
+```
+
+According to the polarity scores, the top five most positive tweets are the tweets with highest scores. Their position are 69189, 70876, 58289, 56576, 75032. The tweets are as below:
+
+[1] @Vauxhall_Wales @FAWales After that great game against Ireland this would be a great prize to cherish that win        
+[2] Congratulations @chorleyfc. Great game and great result. #Chorley #COYM                                               
+[3] Great game @NHLJets! Nice work @OndrejPavelec31!                                                                      
+[4] @UserDpj32 Great win on Sat. Great game I like it when you play with that motor turn up and relax enough to finish    
+
+[5] Valiant Hearts - The Great Wars is an exceptionally good game! Great story telling with history #psplus #ValiantHearts
+
+
+
+###Find the top 5 most negative tweets  
+```{r}
+
+neg_5 <- order(ps$all[,3], decreasing=F) [1:5]
+neg_5
+tweets[neg_5,]
+
+```
+
+According to the polarity scores, the top five most positive tweets are the tweets with highest scores. Their position are 63370 22294 45076 74408 57731. The tweets are as below:
+
+[1] RT @Vauncey: Massive PR fail from @atari as they threaten to sue @llamasoft_ox over TxK http://t.co/M9vHEDah21 #gamedev   
+
+[2] Pathetic shitty ass fucking joke of a fucking team get bent fuck this game is off u guys r a fucking joke     
+
+[3] Pathetic shitty ass fucking joke of a fucking team get bent fuck this game is off u guys r a fucking joke    
+
+[4] @EASPORTSFIFA you guys are fucking bitches and retarded fuck faces. We pay to fucking buy your fucking game and you fucking shit on our face
+
+[5] @B_Rich145 @Finnesotan91 just fucking with ya but sure as hell makes up for that game he lost us      
+
+
+###Create a world cloud of 100 related tweets  
+
+Here, I want to use the top 100 positie tweets with the highest polarity score. According to the previous results, I have calculated all the score of tweets. So I choose the top 100 tweets.
+```{r}
+#Get the 100 tweets
+tweets_100_index <- order(ps$all[,3], decreasing=T) [1:100]
+tweets_100_index
+tweets_100 <- tweets_clean[tweets_100_index]
+str(tweets_100)
+
+#create corpus
+corpus <-Corpus(VectorSource(tweets_100))
+
+#Convert to lower-case
+corpus <- tm_map(corpus, tolower)
+
+#remove stopwords
+corpus <- tm_map(corpus, function(x)removeWords(x,stopwords()))
+
+#convert corpus to a plain text document
+corpus <- tm_map(corpus, PlainTextDocument)
+
+inspect(corpus)
+tweets.tdm <- TermDocumentMatrix(corpus,control=list(removePunctuation=TRUE, tolower=T, minWordLength=1, stopwords(kind="en")))
+m <- as.matrix(tweets.tdm)
+v<- sort(rowSums(m), decreasing=T)
+myNames <- names(v)
+d <- data.frame(word=myNames,freq=v)
+wordcloud(d$word, d$freq, min.freq=4, random.color=T,random.order = F)
+
+```
+
+###Which tweets could be classified as game development? 
+
+I will use key words: #gamedev, game development to find the tweets
+
+```{r}
+#use regular expression to find tweets containing "game develpment"
+#remove all url
+#pre-poccessing the data
+clean_sub <- function(x){
+  #remove the url
+  gsub("(https?://[^ ]+)","",x)
+}
+tweets_no_url <- apply(tweets, 1, clean_sub)
+#to alter all tweets as lower case 
+tweets_no_url <- as.data.frame(tolower(tweets_no_url))
+
+head(tweets_no_url)
+
+
+find_gamedev <- function(x){
+  grepl("game[ ]?dev", x)
+}
+
+has_gamedev <- apply(tweets_no_url, 1,find_gamedev)
+tweets_gamedev <- tweets[which(has_gamedev),]
+
+#among tweets_gamedev, remove all tweets with "game developer"
+find_developer <- function(x){
+  grepl("game developer", x)
+}
+tweets_gamedev <- as.data.frame(tweets_gamedev)
+has_developer <- apply(tweets_gamedev, 1,find_developer)
+game_dev <- tweets_gamedev[which(!has_developer),]
+
+length(game_dev)
+head(game_dev,100)
+
+```
+
+I find 10144 tweets contains key word #gamedev, or game development, not game developer. For example: 
+
+[1] Witness the devastation of the #bombs, great for #exploring fast! #terraria #gamedev http://t.co/p2DVQq9323
+
+[2] RT @AV_metaldemon: Here's a trailer video thingy for my #7DRL game: https://t.co/Axz7G63Eqz #gamedev cc @Enichan 
+

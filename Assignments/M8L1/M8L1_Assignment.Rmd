@@ -1,0 +1,116 @@
+---
+title: "M8L1_Assignment"
+author: "Xueyi Fan"
+date: "July 8, 2016"
+output: word_document
+---
+
+#Assignment
+
+Consider the text from Dr. Seuss below:  
+
+```
+You have brains in your head. You have feet in your shoes. You can steer yourself in any direction you choose. You're on your own, and you know what you know. And you are the guy who'll decide where to go.
+
+```
+- Dr. Seuss
+
+Perform the following tasks (either by hand or in R):  
+
+```
+
+    * Create a term by document matrix for the Dr. Seuss quote. Assume each sentence is a new documment. 
+    * Calculate the td-idf for three terms in the text. Assume each sentence is a new documment. 
+    * Write a regular expression to segment the Dr. Seuss quote in to seperate sentences. 
+    * Write a regular expression to tokenize the Dr. Seuss quote.     
+    * Create a frequency signature for the Dr. Seuss quote. Assume each sentence is a new documment. 
+
+```
+#Answer:
+
+##Create a term by document matrix for the Dr. Seuss quote. Assume each sentence is a new documment.
+
+```{r}
+library("tm")
+docMatrix <- c("You have brains in your head.", "You have feet in your shoes.","You can steer yourself in any direction you choose.", "You're on your own, and you know what you know.", "And you are the guy who'll decide where to go.")
+doc.corpus<- Corpus(DataframeSource(data.frame(docMatrix)))
+inspect(doc.corpus)
+doc.clean <- tm_map(doc.corpus,stripWhitespace)
+termDocMatrix <- TermDocumentMatrix(doc.clean, control=list(removePunctuation=TRUE, tolower=T, minWordLength=1, stopwords(kind="en")))
+termDocMatrix
+inspect(termDocMatrix)
+
+```
+
+##Calculate the tf-idf for three terms in the text. Assume each sentence is a new documment. 
+
+To calculate the tf-idf for terms "shoes"(Doc2), "know"(Doc4), "you"(Doc1)
+```{r}
+
+f_td.shoes <- 1
+f_td.know <- 2
+f_td.you <- 1
+max_doc2_f <- 1
+max_doc4_f <- 2
+max_doc1_f <- 1
+
+#term "shoes"
+tf_shoes <- 0.5 + (0.5*f_td.shoes)/max_doc2_f
+idf_shoes <- log(5/1)
+tf_idf_shoes <- tf_shoes * idf_shoes
+tf_idf_shoes
+
+#term "know"
+
+tf_know <- 0.5 + (0.5*f_td.know)/max_doc4_f
+idf_know <- log(5/2)
+tf_idf_know <- tf_know * idf_know
+tf_idf_know
+
+#term "you"
+tf_you <- 0.5 + (0.5*f_td.you)/max_doc1_f
+idf_you <- log(5/7)
+tf_idf_you <- tf_you * idf_you
+tf_idf_you
+
+```
+
+Here, I got the tf-idf score of three terms: "shoes", "know", and "you". The score of shoes is 1.609438; the score of know is 0.9162907, the score of you is -0.3364722. It is easy to find the word "you" is least important and the word "shoes" are most important among these three terms. 
+
+##Write a regular expression to segment the Dr. Seuss quote in to seperate sentences. 
+
+```{r}
+seuss <- "You have brains in your head. You have feet in your shoes. You can steer yourself in any direction you choose. You're on your own, and you know what you know. And you are the guy who'll decide where to go."
+
+docs <- strsplit(seuss, ". ", fixed = T)
+docs
+```
+
+
+##Write a regular expression to tokenize the Dr. Seuss quote.  
+
+```{r}
+
+words <- strsplit(seuss, "[ ]+", perl=TRUE)
+words
+
+```
+
+##Create a frequency signature for the Dr. Seuss quote. Assume each sentence is a new documment.
+
+```{r}
+#convert the termDoc Matrix to a matrix form
+tdm_matrix <- as.matrix(termDocMatrix)
+
+#sort the rowsums of the matrix
+tdm_sort <- sort(rowSums(tdm_matrix), decreasing = T)
+myNames <- names(tdm_sort)
+
+#create a data-frame
+tdm_frame <- data.frame(word = myNames, freq = tdm_sort)
+tdm_frame
+
+
+
+
+```

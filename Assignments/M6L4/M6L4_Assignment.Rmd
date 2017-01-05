@@ -1,0 +1,236 @@
+---
+title: "M6L4_Assignment"
+author: "Xueyi Fan"
+date: "June 30, 2016"
+output: word_document
+---
+
+#Assignment:
+1. Go to the UC Irvine Machine Learning Repository and find a dataset for supervised classification. Every student MUST use a different dataset so you MUST get approved for which you can going to use. This can be the same dataset you used for the unsupervised clustering as long as the data has some labeled data.
+
+2. Classify your data using Linear Discriminant Analysis (LDA). Answer the following questions:
+*	Does the number of predictor variables for LDA make a difference? Try for a range of models using differing numbers of predictor variables.
+*	What determines the number of linear discriminants in LDA.
+* Does scaling, normalization or leaving the data unscaled make a difference for LDA?
+
+```{r}
+library("ggplot2")
+library("MASS")
+library("car")
+```
+
+#Answer:
+##Loading my data
+
+Here, I choose the [Breast Cancer Wisconsin (Diagnostic) data set](https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/)
+
+
+```{r}
+
+data_url <- 'https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data'
+
+data <- read.table(url(data_url), sep = ',')
+
+names(data) <- c('ID number', 'Diagnosis','radius_mean','texure_mean','perimeter_mean','area_mean','smoothness_mean','compactness_mean','concavity_mean','concave_points_mean','symmetry_mean','fractal_dimension_mean', 'radius_SE','texure_SE','perimeter_SE','area_SE','smoothness_SE','compactness_SE','concavity_SE','concave_points_SE','symmetry_SE','fractal_dimension_SE','radius_worst','texure_worst','perimeter_worst','area_worst','smoothness_worst','compactness_worst','concavity_worst','concave_points_worst','symmetry_worst','fractal_dimension_worst') 
+
+head(data)
+str(data)
+summary(data)
+
+#shuffle the data 
+set.seed(123)
+cancer_data <- data[order(runif(nrow(data))),]
+cancer_data[,2]
+
+```
+
+##Classify my data using Linear Discriminant Analysis (LDA)
+
+```{r}
+
+#to normalize data
+normalize <- function(x){
+  return((x-min(x))/(max(x)-min(x)))
+}
+cancer.normalized <- as.data.frame(lapply(cancer_data[,3:32],normalize))
+head(cancer.normalized)
+summary(cancer.normalized)
+scatterplotMatrix(cancer.normalized[,1:9])
+pairs(cancer.normalized[,1:9])
+
+
+#split my data into training part and testing part
+cancer.train <- cancer.normalized[1:500,]
+cancer.test <- cancer.normalized[501:569,]
+cancer.train.target <- cancer_data[1:500,2]
+cancer.test.target <- cancer_data[501:569,2]
+
+#using LDA
+cancer.lda <- lda(cancer.train.target~., data=cancer.train)
+cancer.lda
+
+
+```
+
+
+##Does the number of predictor variables for LDA make a difference? Try for a range of models using differing numbers of predictor variables.
+
+```{r}
+#use whole variables(30)
+cancer.whole.var <- cancer.normalized[,1:30]
+
+#split the data
+cancer.whole.train <- cancer.whole.var[1:500,]
+cancer.whole.test <- cancer.whole.var[501:569,]
+cancer.whole.train.target <- cancer_data[1:500,2]
+cancer.whole.test.target <- cancer_data[501:569,2]
+
+#using LDA
+cancer.whole.lda <- lda(cancer.whole.train.target~., data=cancer.whole.train)
+cancer.whole.lda.pred <- predict(cancer.whole.lda, newdata = cancer.whole.test)
+whole.cm <- table(cancer.whole.lda.pred$class, cancer.whole.test.target)
+
+
+###########################
+#use half of the variables(15)
+cancer.half.var <- cancer.normalized [,1:15]
+
+#split the data
+cancer.half.train <- cancer.half.var[1:500,]
+cancer.half.test <- cancer.half.var[501:569,]
+cancer.half.train.target <- cancer_data[1:500,2]
+cancer.half.test.target <- cancer_data[501:569,2]
+
+#using LDA
+cancer.half.lda <- lda(cancer.half.train.target~., data=cancer.half.train)
+cancer.half.lda.pred <- predict(cancer.half.lda, newdata = cancer.half.test)
+half.cm <- table(cancer.half.lda.pred$class, cancer.half.test.target)
+
+###########################
+#use ten variables
+cancer.ten.var <- cancer.normalized[,1:10]
+
+#split the data
+cancer.ten.train <- cancer.ten.var[1:500,]
+cancer.ten.test <- cancer.ten.var[501:569,]
+cancer.ten.train.target <- cancer_data[1:500,2]
+cancer.ten.test.target <- cancer_data[501:569,2]
+
+#using LDA
+cancer.ten.lda <- lda(cancer.ten.train.target~., data=cancer.ten.train)
+cancer.ten.lda.pred <- predict(cancer.ten.lda, newdata = cancer.ten.test)
+ten.cm <- table(cancer.ten.lda.pred$class, cancer.ten.test.target)
+
+###########################
+#use five variables
+cancer.five.var<- cancer.normalized[,1:5]
+
+#split the data
+cancer.five.train <- cancer.five.var[1:500,]
+cancer.five.test <- cancer.five.var[501:569,]
+cancer.five.train.target <- cancer_data[1:500,2]
+cancer.five.test.target <- cancer_data[501:569,2]
+
+#using LDA
+cancer.five.lda <- lda(cancer.five.train.target~., data=cancer.five.train)
+cancer.five.lda.pred <- predict(cancer.five.lda, newdata = cancer.five.test)
+five.cm <- table(cancer.five.lda.pred$class, cancer.five.test.target)
+
+###########################
+#use two variables
+cancer.two.var<- cancer.normalized[,1:2]
+
+#split the data
+cancer.two.train <- cancer.two.var[1:500,]
+cancer.two.test <- cancer.two.var[501:569,]
+cancer.two.train.target <- cancer_data[1:500,2]
+cancer.two.test.target <- cancer_data[501:569,2]
+
+#using LDA
+cancer.two.lda <- lda(cancer.two.train.target~., data=cancer.two.train)
+cancer.two.lda.pred <- predict(cancer.two.lda, newdata = cancer.two.test)
+two.cm <- table(cancer.two.lda.pred$class, cancer.two.test.target)
+
+########################
+#comparing models using differing numbers of predictor variables
+whole.cm
+half.cm
+ten.cm
+five.cm
+two.cm
+
+```
+
+When I use all variables, there are four misclassifications. When I use half of the variables, there are six misclassifications. When I use ten variables, there are five misclassificatoins. When I use five variables, there are eight misclassifications. When I use first two variables, there are 12 misclassifications. It is easy to find that different variables will have different perfomance. So the number of predictor variables for LDA makes a difference. 
+
+If I want to got the best k of dimensions of the new feature subspae, it need to compute eigenvectors and collect them.  
+
+##What determines the number of linear discriminants in LDA.
+
+The number of classes determines the number of linear discriminants in LDA. The LDA will find at most k-1 linear discriminants. In my data set, I have two classes, so it has one linear discriminant.
+
+
+##Does scaling, normalization or leaving the data unscaled make a difference for LDA?
+
+```{r}
+
+#normalized data
+normalize <- function(x){
+  return((x-min(x))/(max(x)-min(x)))
+}
+cancer.normalized <- as.data.frame(lapply(cancer_data[,3:32],normalize))
+
+#split my data into training part and testing part
+cancer.normalized.train <- cancer.normalized[1:500,]
+cancer.normalized.test <- cancer.normalized[501:569,]
+cancer.normalized.train.target <- cancer_data[1:500,2]
+cancer.normalized.test.target <- cancer_data[501:569,2]
+
+#LDA using normalized data
+cancer.normalized.lda <- lda(cancer.normalized.train.target~., data=cancer.normalized.train)
+cancer.normalized.lda.pred <- predict(cancer.normalized.lda, newdata = cancer.normalized.test)
+normalized.cm <- table(cancer.normalized.lda.pred$class, cancer.normalized.test.target)
+
+##################
+#scaling data
+cancer.scaled <- as.data.frame(lapply(cancer_data[,3:32], scale))
+
+#split my data into training part and testing part
+cancer.scaled.train <- cancer.scaled[1:500,]
+cancer.scaled.test <- cancer.scaled[501:569,]
+cancer.scaled.train.target <- cancer_data[1:500,2]
+cancer.scaled.test.target <- cancer_data[501:569,2]
+
+#LDA using scaling data
+cancer.scaled.lda <- lda(cancer.scaled.train.target~., data=cancer.scaled.train)
+cancer.scaled.lda.pred <- predict(cancer.scaled.lda, newdata = cancer.scaled.test)
+scaled.cm <- table(cancer.scaled.lda.pred$class, cancer.scaled.test.target)
+
+
+###################
+#unscaled data
+cancer.unscaled <- cancer_data[,3:32]
+
+#split my data into training part and testing part
+cancer.unscaled.train <- cancer.unscaled[1:500,]
+cancer.unscaled.test <- cancer.unscaled[501:569,]
+cancer.unscaled.train.target <- cancer_data[1:500,2]
+cancer.unscaled.test.target <- cancer_data[501:569,2]
+
+#LDA using unscaling data
+cancer.unscaled.lda <- lda(cancer.unscaled.train.target~., data=cancer.unscaled.train)
+cancer.unscaled.lda.pred <- predict(cancer.unscaled.lda, newdata = cancer.unscaled.test)
+unscaled.cm <- table(cancer.unscaled.lda.pred$class, cancer.unscaled.test.target)
+
+##################
+#comparing models using differing type of data
+normalized.cm
+scaled.cm
+unscaled.cm
+
+
+
+```
+
+scaling, normalization or leaving the data unscaled don't make a difference for LDA. They have the same result. The reason is that LDA decomposes ratio of Between-to-Within covariances and not the covariance itself having it magnitude.
+

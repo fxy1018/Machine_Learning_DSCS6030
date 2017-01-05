@@ -1,0 +1,288 @@
+---
+title: "M8L3"
+author: "Xueyi Fan"
+date: "July 10, 2016"
+output: word_document
+---
+
+#Assignment:
+
+* Load the file ML.Tweets.csv and ML.Tweets.New.csv (it is online at  'http://nikbearbrown.com/YouTube/MachineLearning/M08/ML.Tweets.csv' and 'http://nikbearbrown.com/YouTube/MachineLearning/M08/ML.Tweets.New.csv' )    
+* Do the following with ML.Tweets.csv:   
+    * Extract and rank a list of the important hashtags (using td-idf or word entropy)   
+    * Cluster the tweets using these hashtags .    
+    * Optional - give the the clusters names based on their dominant hashtags.   
+    * Classify the tweets in ML.Tweets.New.csv using the cluster lables generated from ML.Tweets.csv.  
+    * Use the qdap polarity function to score the polarity of the tweets in ML.Tweets.csv.        
+    * Would creating a custom polarity.frame - A dataframe or environment containing a dataframe of positive/negative words and weights - based on the tags and words in these tweets improve the polarity score? Try it.   
+
+#Answer:
+##Load the file ML.Tweets.csv and ML.Tweets.New.csv (it is online at  'http://nikbearbrown.com/YouTube/MachineLearning/M08/ML.Tweets.csv' and 'http://nikbearbrown.com/YouTube/MachineLearning/M08/ML.Tweets.New.csv' )
+
+```{r}
+library("RTextTools")
+library("e1071")
+library("qdap")
+library("tm")
+
+tweets.url <- "http://nikbearbrown.com/YouTube/MachineLearning/M08/ML.Tweets.csv"
+tweets.new.url <- "http://nikbearbrown.com/YouTube/MachineLearning/M08/ML.Tweets.New.csv"
+
+tweets <- read.csv(url(tweets.url), header=F)
+tweets.new <- read.csv(url(tweets.new.url), header=F)
+
+str(tweets)
+str(tweets.new)
+
+```
+
+Do the following with ML.Tweets.csv:  
+
+### Extract and rank a list of the important hashtags (using td-idf or word entropy)   
+
+data preprocessing methods are based on [Zangerle el. paper](http://ceur-ws.org/Vol-730/paper7.pdf)
+
+```{r}
+# multiple precessing steps
+#remove all messgaes not containing hashtags at all.
+has_tag <- function(x){
+  grepl("#[_a-zA-Z1-9]+",x)
+}
+
+tag_result <- apply(tweets, 1, has_tag)
+tweets_ht <- tweets[which(tag_result),]
+
+head(tweets_ht)
+
+
+#remove all non-english message
+clean_sub <- function(x){
+        x <- tolower((x))
+        #remove all puncuation except #
+        gsub("(?!#)[[:punct:]]", "",perl=T,
+        #remove all control characters
+        gsub("[[:cntrl:]]", "",
+              #remove all digit
+              gsub("\\d+","",
+                    #remove the users
+                    gsub("@([_a-zA-Z1-9]+)","",
+                          #remove all url
+                          gsub("(https?://[^ ]+)","",x)))))
+}
+
+tweets_clean <- apply(as.data.frame(tweets_ht), 1, clean_sub)
+head(tweets_clean)
+
+#Extract all hashtags
+hashtags_re <- function(line){
+  m <- gregexpr("#([_a-zA-Z1-9]+)", line)
+  return(regmatches(line,m))
+}
+tweets_clean <- as.data.frame(tweets_clean)
+result_hashtag <- apply(tweets_clean, 1, hashtags_re)
+head(result_hashtag)
+
+#rank the hashtag according to their tf-idf
+hashtags.corpus <- Corpus(VectorSource(result_hashtag))
+#inspect(hashtags.corpus)
+hashtags.tdm <- TermDocumentMatrix(hashtags.corpus, control=list(removePunctuation=T))
+
+dim(hashtags.tdm)
+m<- as.matrix(hashtags.tdm)
+term_nums <- rowSums(m)
+tweets_sum <- rowSums(m!=0)
+
+
+#calculate tf of each hashtag
+tf <- term_nums/tweets_sum
+
+#calculate idf of each hashtag
+doc_num <- nrow(tweets_clean)
+idf <-log(doc_num/tweets_sum)
+
+#to get each hashtag tf-idf
+tf_idf <- tf*idf
+
+hash_sorted <- sort(tf_idf, decreasing = T)
+length(hash_sorted)
+hash_sorted[1:10]
+
+#plot the tf-idf score
+plot(c(hash_sorted[1:50],hash_sorted[100:1000]))
+plot(c(hash_sorted[9000:10000], hash_sorted[12000:12738]))
+
+quantile(hash_sorted,probs=c(0.05,0.50,0.95))
+
+hashtag_important_list <- hash_sorted[hash_sorted>11.5]
+length(hashtag_important_list)
+head(hashtag_important_list)
+
+
+```
+
+Observing the quantile of the tf-idf score, only a small part of hashtags have score lower than ten, most of them have score larger then 12, Here I set 11.5 as the cut-off score to seperate the important hashtags and unimportant hashtags.
+
+
+### Cluster the tweets using these hashtags .    
+
+Using the list of hashtags got from last question, Here, I choose about 500 hashtags and first 1000 tweets becasue of the computation problem which my computer can't calculate large numbers and it will take long time.
+
+```{r}
+#use hierarchical clustering
+library("cluster")
+
+hashtags.500.corpus <- Corpus(VectorSource(result_hashtag))
+hashtags.500.tdm <- TermDocumentMatrix(hashtags.500.corpus, control=list(removePunctuation=T))
+tweets.matrix <- as.matrix(hashtags.500.tdm)
+
+#hclust clustering
+distMatrix <- dist(scale(t(tweets.matrix)[1:2000,1:500]))
+tweets.fit <- hclust(distMatrix,method = "ward.D")
+
+groups <- cutree(tweets.fit, k=5)
+table(groups)
+
+groups.1 <- groups[groups==1]
+groups.2 <- groups[groups==2]
+groups.3 <- groups[groups==3]
+groups.4 <- groups[groups==4]
+groups.5 <- groups[groups==5]
+
+
+head(groups.1)
+head(groups.2)
+head(groups.3)
+head(groups.4)
+head(groups.5)
+
+
+```
+
+
+### Classify the tweets in ML.Tweets.New.csv using the cluster lables generated from ML.Tweets.csv.  
+```{r}
+#label the ML.Tweets.csv and use 
+train_tweets <- data.frame(tweets = tweets_clean[1:2000,], cluster = groups)
+head(train_tweets)
+
+#preprocessing ML.Tweets.New.csv data
+
+#remove all messgaes not containing hashtags at all.
+new_tag_result <- apply(tweets.new, 1, has_tag)
+tweets_new_ht <- tweets.new[which(new_tag_result),]
+
+#remove all non-english message
+tweets_new_clean <- apply(as.data.frame(tweets_new_ht), 1, clean_sub)
+head(tweets_new_clean)
+
+#Classify the tweets_new data
+matrix <- create_matrix(train_tweets[,1], language = "english", removeStopwords = T, stemWords = F,tm::weightTfIdf)
+
+mat <- as.matrix(matrix)
+classifier <- naiveBayes(mat, as.factor(train_tweets[,2]))
+
+#to classify all the tweets in ML.Tweets.New.csv need a long time to run out the result, so I have to reduce the number of tweets for prediction.
+
+predicted <- predict(classifier,tweets_new_clean[1:50000])
+table(predicted)
+
+```
+
+Using naive Bayes method to classify the tweets in ML.Tweets.New.csv. Considering the computation ability of my own computer, I used 2000 tweets and their hashtags to do clustering, and use 50000 tweets to do prediction which lead to the bias in my final predict results which shows majority of tweets are classified in cluster 1.  
+
+
+### Use the qdap polarity function to score the polarity of the tweets in ML.Tweets.csv.  
+
+First, I will clean the data, remove users, hashtags, url, number, punctuations, then calculate the scores
+```{r}
+
+#pre-poccessing the data
+clean_sub <- function(x){
+  #remove all punctuations
+  gsub("[[:punct:]]", "",
+        #remove all control characters
+        gsub("[[:cntrl:]]", "",
+              #remove all digit
+              gsub("\\d+","",
+                    #remove the hashtag
+                    gsub("#[_a-zA-Z1-9]+", "", 
+                        #remove the users
+                        gsub("@([_a-zA-Z1-9]+)","",
+                            #remove the url
+                            gsub("(https?://[^ ]+)","",x))))))
+  
+}
+
+tweets_clean <- apply(tweets, 1, clean_sub)
+tweets_clean <-as.character(tweets_clean)
+tweets_clean <- stripWhitespace(tweets_clean)
+tweets_clean <- removeWords(tweets_clean, stopwords())
+head(tweets_clean)
+
+```
+
+When I used funtion polarity(), I met a computation problem, so I have to choose first 3000 tweets to do sentiment analysis
+
+```{r}
+#Computation problem, there are more then 130000 tweets, it will take long time to get the result, so here I use 10000 instead of 130000 tweets.
+ps <- polarity(tweets_clean[1:3000])
+dim(ps$all)
+ps$all[1:50,]
+
+```
+
+
+### Would creating a custom polarity.frame - A dataframe or environment containing a dataframe of positive/negative words and weights - based on the tags and words in these tweets improve the polarity score? Try it. 
+
+I will use a word list [AFINN](http://www2.imm.dtu.dk/pubdb/views/publication_details.php?id=6010) which has 2477 words and phrases rated from -5 [very negative] to +5 [very positive].
+
+```{r}
+afinn_list <- read.delim(file="AFINN-111.txt", header=F)
+names(afinn_list) <- c("word", "score")
+afinn_list$word <- tolower(afinn_list$word)
+positive_afinn <- c(afinn_list$word[afinn_list$score>0])
+negative_afinn <- c(afinn_list$word[afinn_list$score<0])
+
+#Base on the previous question, I use 5000 tweets to do sentiment analysis
+tweets.3000.corpus <- Corpus(VectorSource(tweets_clean[1:3000]))
+tweets.3000.tdm <- TermDocumentMatrix(tweets.3000.corpus, control= list(stopwords("en"), removeWords=T, stripWhitespace=T))
+tweets.3000.matrix <- as.matrix(tweets.3000.tdm)
+tweets.3000.freq <- rowSums(tweets.3000.matrix)
+
+#get the word list of 5000 tweets
+words.3000 <- names(tweets.3000.freq)
+
+#to find positive and negative words according to AFINN word list
+positive_tweets <- as.vector(NULL)
+negative_tweets <- as.vector(NULL)
+for (word in words.3000){
+  if (word %in% positive_afinn){
+    positive_tweets <- c(positive_tweets,word)
+  }
+  else if (word %in% negative_afinn){
+    negative_tweets <- c(negative_tweets,word)
+  }
+}
+
+positive_tweets
+negative_tweets
+    
+#generate a sentiment loopup hash table 
+pol_frame <- sentiment_frame(positives = positive_tweets, negative=negative_tweets, pos.weights = 1, neg.weights = -1)
+
+
+ps.new <- polarity(tweets_clean[1:3000], polarity.frame = pol_frame)
+dim(ps.new$all)
+ps.new$all[1:50,]
+
+
+#using default polarity frame
+ps$all[1:50,]
+```
+
+In fact, using the custom polarity frame improve the polarity score. For example, the fourteenth tweets, the old score is 0.37796, and the new score is 0.7559289. Using the new polarity frame, it is more sensitive for positive tweets.
+
+
+
+
+

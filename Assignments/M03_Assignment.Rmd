@@ -1,0 +1,261 @@
+---
+title: "M03_Assignment"
+author: "Xueyi Fan"
+date: "June 1, 2016"
+output: word_document
+---
+
+#Assingment
+*	Download the compressed data from the U.S. Bureau of Labor Statistics http://www.bls.gov/ @ http://www.bls.gov/cew/data/files/2014/csv/2014_annual_singlefile.zip, and extract the .csv file.
+
+*	Run Principal Components Analysis on the BLS data and answer the following questions. (You can use any PCA function you wish, i.e. princomp(), prcomp(), principal() or by hand.)
+
+*	Questions:
+
+(a)	What proportion of the total variation in the data is explained by each of the principal components?
+
+(b) Plot a screeplot.
+
+(c)	Based on the variation explained for each of these components, which, if any, components would you use?
+
+(d)	Is there evidence of clustering in the data by creating biplots of the each of the components plotted against one another?
+
+(e)	Do any of the biplots reveal any interesting structure?
+
+(f)	How many pcs are required to explain 75% of the variance in the data?
+
+Write up your report as an .Rmd file.
+
+##Load the csv file
+
+```{r}
+
+url = 'http://www.bls.gov/cew/data/files/2014/csv/2014_annual_singlefile.zip'
+temp = tempfile()
+download.file(url,temp, mode = "w")
+data <- read.csv(unzip(temp), header = TRUE)
+unlink(temp)
+#file = unzip('/Users/fanxueyi/Downloads/test.csv.zip' )
+#data = read.csv('~/Downloads/2014.annual.singlefile.csv', header = TRUE)
+head(data)
+names(data)
+str(data)
+
+```
+
+
+##Run principal component analysis
+
+###Organize the data
+
+* First, the BLS data have NA data and non-numeric data. I will process the data according to the result of str(data)
+
+In this file, there are 38 variables. Six variables(are_fisp, industry_code,  qtr, disclosure_code, lq_disclosure_code, oty_disclosure_code) are factor variables. 32 variables are numeric variables. Principal component analysis only accept the numeric variables. I will keep only numeric variables and remove all factor variables.
+
+However, there are some variables are meaningless for PCA even though they are numeric variables. Own_code, agglvl_code are interger and not continious, so I remove them. Size_code, and year are the same number in rows, these two columns will be exlcuded. 
+
+Now I subset the original data and keep 28 variables.
+
+```{r}
+
+keep_data = data.frame(data[,9:15],data[,17:23], data[,25:38])
+names(keep_data)
+
+```
+
+
+I will calculate corelation value to see whether the remaining variables have highly correlation
+
+I use all keep_data to calculate the corelation overall.
+
+```{r}
+
+cor(keep_data)
+
+```
+
+In order to analysis the correlation of each two pairs variables, I analyze the data part by part.
+
+For column 1 to column 7 of keep_data which are about annual data:
+
+```{r}
+
+annual.cor = cor(keep_data[,1:7])
+annual.cor
+
+```
+
+The result of correlation shows that avg_annual_pay is highly correlative with annual_ave_wkly_wage and the correlation value is 0.999999948.
+
+Annual_ave_estabs are highly correlative with annual_ave_emplvl, total_annual_wages, taxable_annual_wages and annual_contributions and their correlation are larger than 0.97. Amoung them, annual_avg_emplvl and total_annual_wages have corelation value 0.99461814, and taxable_annual_wages and annual_contributions have corelation value 0.99533815.
+
+Here, I foucus on the perfect correlated variables which is almost to 1. That means the weekly wage can be reflected by the annual pay, and So I keep avg_annual_pay.
+
+For column 8 to column 14 of keep_data which are about lq data:
+
+```{r}
+
+lq.cor = cor(keep_data[,8:14])
+lq.cor
+
+```
+
+The result of correlation shows that lq_annual_avg_wkly_wage and lq_ave_annual_pay are highly correlative and their correlation value is 0.99999595. I will remove the weekly wage.
+
+
+For column 15 to column 28 of keep_data which are about oty data:
+
+```{r}
+
+oty.cor = cor(keep_data[,15:28])
+oty.cor
+
+
+cor(keep_data)
+```
+
+The result of correlation shows that 
+
+oty_annual_avg_emplvl_chg is highly correlative with oty_total_annual_wages_chg and oty_taxable_annual_wages_chg and their correlation value is larger than 0.97. 
+
+Oty_annual_ave_wkly_wage_chg is highly correlative with oty_avg_annual_pay_chg which has the correlation value 0.9999989966. I will remove one of them.
+
+Oty_annual_avg_wkly_wag _pct_chg is highly correlative with oty_avg_annual_pay_pct_chg which has the correlation value 0.9999939.
+
+So for this part of data, I will keep both oty_avg_annual_pay_chg, and oty_avg_annual_pay_pct_chg and remove oty_annual_ave_wkly_wage_chg and oty_annual_avg_wkly_wag _pct_chg
+
+Now, I will analysis all keep_data together.
+
+```{r}
+data.keep = data.frame(keep_data[,c(1:5,7:12, 14:24, 27,28)])
+cor(data.keep)
+
+names(data.keep)
+```
+
+Although total_annual_wages has highly correlation with oty_annual_avg_emplvl_chg and oty_total_annual_wages_chg which the correlation values of them are larger than 0.97, they are not perfect correlative. So I will not remove other variables.
+
+My final data contains 24 variables. I will run PCA on these 24 variables. 
+
+
+###Use princomp() function to do PCA
+
+```{r}
+BLS.fit.A <- princomp(formula = ~., data.keep, cor = TRUE, na.action = na.exclude)
+BLS.fit.A
+summary(BLS.fit.A)
+names(BLS.fit.A)
+
+#to plot the screeplot
+screeplot(BLS.fit.A)
+
+#to use biplot
+#biplot(BLS.fit.A)
+
+#However, it takes a very long time for the biplot to execute, and I am unable to determine the result. 
+
+library('ggbiplot')
+library('ggplot2')
+ggbiplot(BLS.fit.A, labers = rownames(data.keep), obs.scale = 1, var.scale = 1) + xlim(-500, 10) + ylim(-10,500)
+
+```
+
+###Answer for questions:
+
+(a)	What proportion of the total variation in the data is explained by each of the principal components?
+
+* Using the summary(BLS.fit.A), it is easy to get the proportion of the total variation in the data is explained by each of the principal components. For example, Compnent 1 explains 16.92% of the variation and Compnent 2 explains 15.31% and Component 1 to Component 10 can expalin 94.55% of the variation. 
+
+
+(b) What happens when you plot a screeplot?
+
+* I use screeplot() function to plot. The x axis is component and y axis is variances. The plot shows 10 components and its variances. It can find that component 1 has the largest variances.
+
+(c)	Based on the variation explained for each of these components, which, if any, components would you use? Why?
+
+* I plan to use first 11 components because these componnets can explain 95% of variance.
+
+(d)	Is there evidence of clustering in the data by creating biplots of the each of the components plotted against one another? Why or why not?
+
+* Yes, there is evidence of clustering in the data by creating biplots of components plotted against one another. 
+
+* There are 11 components, I made biplot with component 1 and component 2. In the biplot, some variables are in the same direction with PC1 and some variables are in the same direction with PC2. That means the variables in the same directions have high correlation and can be culstered. And there are also many wage data which have very high correlation value.
+
+* Also, if the biplot function could be executed, there will be some vectors with direction and length on the plot. The vectors will present the equality of correlation and the proportionality of standard deviations of the variables. If the variables were perfect fit, the cosine of the angle would be equal and the length of them were almost same. 
+
+
+(e)	Do any of the biplots reveal any interesting structure?
+
+* Yes, the biplots reveal interesting structure. Biplots of the PCA components show the correlation of variables because PCA could let to reduce data by replace correlated variables to the new data set. In my biplots, there are one group of data in the same direction along the PC1 and the other group of data in the same direction along the PC2. These two groups data are clustered.
+
+
+(f)	How many pcs are required to explain 75% of the variance in the data?
+
+* According to the PCA result, 6 components are required to explain 75% of the variance in the data.
+
+
+
+###Use prcomp() function to do PCA
+
+```{r}
+BLS.fit.B <- prcomp(data.keep, retx = TRUE, center = TRUE, scale. = TRUE)
+BLS.fit.B
+summary(BLS.fit.B)
+names(BLS.fit.B)
+
+#to plot the screeplot
+screeplot(BLS.fit.B)
+
+#to use biplot
+#if to use biplot() function, it takes long time to run it
+#biplot(BLS.fit.B)
+
+ggbiplot(BLS.fit.B, labers = rownames(data.keep), obs.scale = 1, var.scale = 1, xlim = c(-500, 10), ylim = c(-10,500))
+
+
+```
+
+###Answer for questions:
+
+(a)	What proportion of the total variation in the data is explained by each of the principal components?
+
+* Using the summary(BLS.fit.B), it is easy to get the proportion of the total variation in the data is explained by each of the principal components. For example, Compnent 1 explains 39.71% of the variation and Compnent 2 explains 10.21% and Component 1 to Component 11 can expalin 95.640% of the variation. 
+
+
+(b) What happens when you plot a screeplot?
+
+* I use screeplot() function to plot. The x axis is component and y axis is variances. The plot shows 10 components and its variances. It can find that component 1 has the largest variances.
+
+(c)	Based on the variation explained for each of these components, which, if any, components would you use? Why?
+
+* I plan to use first 11 components because these componnets can explain 95% of variance.
+
+(d)	Is there evidence of clustering in the data by creating biplots of the each of the components plotted against one another? Why or why not?
+
+* Yes, there is evidence of clustering in the data by creating biplots of components plotted against one another. 
+
+* There are 11 components, I made biplot with component 1 and component 2. In the biplot, some variables are in the opposite direction with PC1 and some variables are in the opposite direction with PC2. That means the variables in the same directions have high correlation and can be culstered. And there are also many wage data which have very high correlation value.
+
+* Also, if the biplot could execute, there will be some vectors with direction and length on the plot. The vectors will present the equality of correlation and the proportionality of standard deviations of the variables. If the variables were perfect fit, the cosine of the angle would be equal and the length of them were almost same. 
+
+
+(e)	Do any of the biplots reveal any interesting structure?
+
+* Yes, the biplots reveal interesting structure. Biplots of the PCA components show the correlation of variables because PCA could let to reduce data by replace correlated variables to the new data set. In my biplots, there are one group of data in the same direction along the PC1 and the other group of data in the same direction along the PC2. These two groups data are clustered.
+
+
+(f)	How many pcs are required to explain 75% of the variance in the data?
+
+* According to the PCA result, 6 components are required to explain 75% of the variance in the data.
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,223 @@
+---
+title: "M6L2_Assignment"
+author: "Xueyi Fan"
+date: "June 30, 2016"
+output: word_document
+---
+
+#Assignemnt
+
+1. Go to the UC Irvine Machine Learning Repository and find a dataset for supervised classification. Every student MUST use a different dataset so you MUST get approved for which you can going to use. This can be the same dataset you used for the unsupervised clustering as long as the data has some labeled data.
+2. Generate a Decision Tree with your data. You can use any method/package you wish.
+Answer the following questions:
+* Does the size of the data set make a difference?
+* Do the rules make sense? If so why did the algorithm generate good rules? If not, why not?
+* Does scaling, normalization or leaving the data unscaled make a difference?
+
+```{r}
+library("ggplot2")
+library("C50")
+library("gmodels")
+library("rpart")
+library("RColorBrewer")
+library("tree")
+library("party")
+
+```
+
+#Answer:
+##1. Loading the dataset
+
+Here, I choose the [Breast Cancer Wisconsin (Diagnostic) data set](https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/)
+
+```{r}
+
+data_url <- 'https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data'
+
+data <- read.table(url(data_url), sep = ',')
+
+names(data) <- c('ID number', 'Diagnosis','radius_mean','texure_mean','perimeter_mean','area_mean','smoothness_mean','compactness_mean','concavity_mean','concave_points_mean','symmetry_mean','fractal_dimension_mean', 'radius_SE','texure_SE','perimeter_SE','area_SE','smoothness_SE','compactness_SE','concavity_SE','concave_points_SE','symmetry_SE','fractal_dimension_SE','radius_worst','texure_worst','perimeter_worst','area_worst','smoothness_worst','compactness_worst','concavity_worst','concave_points_worst','symmetry_worst','fractal_dimension_worst') 
+
+head(data)
+str(data)
+summary(data)
+
+#shuffle the data 
+set.seed(123)
+cancer_data <- data[order(runif(nrow(data))),]
+cancer_data[,2]
+
+```
+
+#2. Generate a Decision Tree with my data
+
+First of all, I will normalize my data
+```{r}
+
+normalize <- function(x){
+  return((x-min(x))/(max(x)-min(x)))
+}
+
+cancer.normalized <- as.data.frame(lapply(cancer_data[,c(3:32)], normalize))
+head(cancer.normalized)
+summary(cancer.normalized)
+
+#split the data frames
+cancer.normalized.train <- cancer.normalized[1:500,]
+cancer.normalized.test <- cancer.normalized[501:569,]
+cancer.normalized.train.target<- cancer_data[1:500,2]
+cancer.normalized.test.target <- cancer_data[501:569,2]
+
+#check the proportion of class variable
+
+prop.table(table(cancer_data[,2]))
+```
+
+Then, I will use the method C5.0, rpart, tree, ctree to generate the decision trees.
+
+```{r}
+#use C5.0
+cancer.c5.0 <- C5.0(cancer.normalized.train, cancer.normalized.train.target)
+cancer.c5.0
+summary(cancer.c5.0)
+
+#use rpart
+cancer.rpart <- rpart(cancer_data[1:500,2]~., data=cancer.normalized.train, method="class")
+printcp(cancer.rpart)
+plotcp(cancer.rpart)
+summary(cancer.rpart)
+  #plot tree
+plot(cancer.rpart, uniform = T, main = "Classification Tree for Cancer type")
+text(cancer.rpart, use.n = T, all= T)
+
+
+#use tree
+cancer.tree <- tree(cancer_data[1:500,2]~., data=cancer.normalized.train)
+summary(cancer.tree)
+plot(cancer.tree)
+text(cancer.tree)
+
+#use ctree
+cancer.ctree <- ctree(cancer_data[1:500,2]~., data=cancer.normalized.train)
+plot(cancer.ctree, main = "Conditional Inference Tree")
+
+```
+
+#Answer the following questions:
+
+I choose "tree" as my method. And the original size of my data is 569.
+
+##Does the size of the data set make a difference?
+
+```{r}
+#use the orginal size of data
+cancer.tree.whole <- tree(cancer_data[1:500,2]~., data=cancer.normalized.train)
+summary(cancer.tree.whole)
+plot(cancer.tree.whole)
+text(cancer.tree.whole)
+
+#use half of the data
+cancer.half.train <- cancer.normalized[1:250,]
+cancer.half.test <- cancer.normalized[501:569,]
+cancer.half.train.target<- cancer_data[1:250,2]
+cancer.half.test.target <- cancer_data[501:569,2]
+
+cancer.tree.half<- tree(cancer.half.train.target~., data= cancer.half.train)
+summary(cancer.tree.half)
+plot(cancer.tree.half)
+text(cancer.tree.half)
+
+#evaluate the performances of the models of the two datasets
+
+#whole data set
+cancer.whole.pred <- predict(cancer.tree.whole, cancer.normalized.test, type="class")
+CrossTable(cancer.normalized.test.target, cancer.whole.pred, prop.chisq = F, prop.c = F, prop.r = F, dnn = c('actual type', 'predicted type'))
+
+#half-size data set 
+cancer.half.pred <- predict(cancer.tree.half, cancer.half.test, type= "class")
+CrossTable(cancer.half.test.target, cancer.half.pred, prop.chisq = F, prop.c = F, prop.r = F, dnn = c('actual type', 'predicted type'))
+
+```
+
+I used different size of data to generate the models and used the same data to test the performances of these models. When I used whole data set, the misclassification is 5, while I used half size of data, the misclassification is 6. That means the size of data set makes a difference. 
+
+
+##Do the rules make sense? If so why did the algorithm generate good rules? If not, why not?
+
+```{r}
+#use the whole data set and "tree" as the method
+plot(cancer.tree.whole)
+text(cancer.tree.whole)
+
+```
+
+According to my decision tree, there are 10 rules. For example, if the largest radius (radius_worst) is less than 0.3157, largest concave point is less than 0.467, the standard error of radius is less than 0.185, and the largest texure is less than 0.48, then the cancer is begign; If the largest radius is greater than 0.31, and the mean of concavity is greater than 0.169, the cancer is malignant.
+
+The rules make sense. For example, if the tumor is small, it is highly possible that this tumor is benign and if the tumor is large, it is highly possible that this tumor is malignant. A decision tree is split the data set into subsets based on an attribute value test. and in general, doctor make a dignostic of the cancer is also depend on the attributes of the tumor or tissue for example the radius, the standard deviation of gray-scale values (texture). So the algorithm generate good rules.
+
+##Does scaling, normalization or leaving the data unscaled make a difference?
+
+Here, I use the whole data set and "tree" as the method
+```{r}
+#scaling data
+cancer.scaled <- as.data.frame(lapply(cancer_data[,c(3:32)], scale))
+head(cancer.scaled)
+summary(cancer.scaled)
+
+#normalization data
+normalize <- function(x) {
+  return((x-min(x))/(max(x)-min(x)))
+}
+cancer.normalized <- as.data.frame(lapply(cancer_data[,c(3:32)],normalize))
+head(cancer.normalized)
+summary(cancer.normalized)
+
+#unscaling data
+cancer.unscaled <- as.data.frame(cancer_data[,c(3:32)])
+head(cancer.unscaled)
+summary(cancer.unscaled)
+
+#make tree using scaled data
+cancer.scaled.train <- cancer.scaled[1:500,]
+cancer.scaled.test <- cancer.scaled[501:569,]
+cancer.scaled.train.target<- cancer_data[1:500,2]
+cancer.scaled.test.target <- cancer_data[501:569,2]
+cancer.tree.scaled <- tree(cancer_data[1:500,2]~., data=cancer.scaled.train)
+plot(cancer.tree.scaled)
+text(cancer.tree.scaled)
+
+#make tree using normalized data
+cancer.normalized.train <- cancer.normalized[1:500,]
+cancer.normalized.test <- cancer.normalized[501:569,]
+cancer.normalized.train.target<- cancer_data[1:500,2]
+cancer.normalized.test.target <- cancer_data[501:569,2]
+cancer.tree.normalized <- tree(cancer_data[1:500,2]~., data=cancer.normalized.train)
+plot(cancer.tree.normalized)
+text(cancer.tree.normalized)
+
+#make tree using unscaled data
+cancer.unscaled.train <- cancer.unscaled[1:500,]
+cancer.unscaled.test <- cancer.unscaled[501:569,]
+cancer.unscaled.train.target<- cancer_data[1:500,2]
+cancer.unscaled.test.target <- cancer_data[501:569,2]
+cancer.tree.unscaled <- tree(cancer_data[1:500,2]~., data=cancer.unscaled.train)
+plot(cancer.tree.unscaled)
+text(cancer.tree.unscaled)
+
+#evaluate the performence of these three models
+
+#model using scaled data 
+scaled.pred <- predict(cancer.tree.scaled, cancer.scaled.test, type= "class")
+CrossTable(cancer.scaled.test.target, scaled.pred, prop.chisq = F, prop.c = F, prop.r = F, dnn = c('actual type', 'predicted type'))
+
+#model using normalized data
+normalized.pred <- predict(cancer.tree.normalized, cancer.normalized.test, type="class")
+CrossTable(cancer.normalized.test.target, normalized.pred, prop.chisq = F, prop.c = F, prop.r = F, dnn = c('actual type', 'predicted type'))
+
+#model using unscaled data
+unscaled.pred <- predict(cancer.tree.unscaled, cancer.unscaled.test, type="class")
+CrossTable(cancer.unscaled.test.target, unscaled.pred, prop.chisq = F, prop.c = F, prop.r = F, dnn = c('actual type', 'predicted type'))
+
+```
+
+The misclassification of three models are same. The transformation of data will not effect the outputs of the decision tree. The tree structure remain the same with or without the data transformation. So scaling, normalization or leaving the data unscaled makes no difference.

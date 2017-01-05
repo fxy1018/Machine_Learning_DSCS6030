@@ -1,0 +1,486 @@
+---
+title: "Module2_assignment"
+author: "Xueyi Fan"
+date: "May 21, 2016"
+output: word_document
+---
+
+This homework assignment focuses on Linear Models, Model Inference and Interpretation. You will provide a written analysis based on the following information:
+
+* First, load the file M01_quasi_twitter.csv (it is online at http://nikbearbrown.com/YouTube/MachineLearning/M01/M01_quasi_twitter.csv'). Next, generate a linear model for the following:
+    + A relation between followers_count & gender
+    + A relation between dob_year & statuses_count
+    + Two significant linear models of your choosing (Note that you may need to try a few models before finding two significant linear models) 
+    + A multivariate relation between wage & height, race, age, education, and experience 
+    + A significant logistic linear model of your choosing 
+
+* Finally, answer the following questions:
+    1. Is the relationship significant? 
+    2. Are any model assumptions violated? 
+    3. Is there any multi-colinearity in multivariate models? 
+    4. In in multivariate models are predictor variables independent of all the other predictor variables? 
+    5. In in multivariate models rank the most significant predictor variables and exclude insignificant one from the model. 
+    6. Does the model make sense? Why or why not? 
+    
+
+## To load the file M01_quasi_twitter.csv  
+```{r}
+require("ggplot2")
+require("reshape2")
+
+data_url <-'http://nikbearbrown.com/YouTube/MachineLearning/M01/M01_quasi_twitter.csv'
+twitter_data<- read.csv( url(data_url) )
+str(twitter_data)
+names(twitter_data)
+```
+
+## A relation between followers_count & gender  
+```{r}
+qplot( twitter_data$gender, twitter_data$followers_count) + geom_boxplot() + ylim(0,1000)
+
+ggplot(twitter_data, aes(followers_count, colour= gender)) + geom_density()+xlim (0,5*10^3) + labs(title = "Female and male followers count", y = "Density", x= "followers count")
+
+m_follower_gender<- lm(as.numeric(twitter_data$gender)~twitter_data$followers_count)
+
+summary(m_follower_gender)
+anova(m_follower_gender)
+
+plot(m_follower_gender)
+
+
+
+```
+
+In the boxplot and density plot, there is no obvious followers count different between female and male. Becasue the gender is binary, I use logistic regression here to measure the relationship between gender and followers count. However, the result of t-test shows that the p-value of slope of followers count is 0.0958, I can't reject the null hyphotheis. The gender and followers have no relationship.
+
+When I observed the residual plot, the error term is not normal and homoscedasticity. And the data seems to have outliers which violate the error term assumptions.
+
+ANOVA test also get the p value which is 0.09576. I can't reject the null hyphothesis. This linear regression is not significant.
+
+I try to log transform the followers_count data which add 1 pseudo count to original count and observe the relation between gender and followers count
+
+```{r}
+m_follower_gender_log <- lm(as.numeric(twitter_data$gender)~log(twitter_data$followers_count+1))
+
+summary(m_follower_gender_log)
+plot(m_follower_gender_log)
+anova(m_follower_gender_log)
+
+anova(m_follower_gender, m_follower_gender_log)
+
+```
+
+The p-value of beta0 and beta1 are small enough to reject the null hyphothesis. However, the error term in residual plot is not normal and homoscedasticity. And the data seems to have outliers which violate the error term assumptions.
+
+The anova results show that this new linear regression model is significant which the p-value is smaller than 0.001.
+
+Using anova to compare two models, the second model has a little imporvement and better than the firsh model. But both of them can't provide evident of relation between gender and followers count
+
+In sum, both models are not significant and they violated the assumptions
+
+## A relation between dob_year & statuses_count  
+
+```{r}
+
+qplot( twitter_data$statuses_count, twitter_data$dob_year)+ stat_smooth(method="lm",se=FALSE)
+
+m_statuses_dobYear <- lm(twitter_data$dob_year ~ twitter_data$statuses_count) 
+summary(m_statuses_dobYear)
+
+plot(m_statuses_dobYear)
+
+
+```
+
+In the plot, I can't find an obvious relation between dob year and statuses count. After linear regression of dob year and statuses count, the p-values of slope are not good enough to explain the data. The value of slope is close to zero. And results of the residual plot is not good either. Because part of the data are much greater than others and the data around year 1900 are not meaningfull which it's little possible that the users' bod year is 1900, I transform the data and trim the outliers.
+
+```{r}
+new_stat_count <- log(twitter_data$statuses_count+1)
+stat_bod_year <- data.frame(count = new_stat_count,year = twitter_data$dob_year)
+trim_condition <- stat_bod_year$year > 1925
+stat_bod_year_trim <- stat_bod_year[trim_condition,]
+
+qplot(count,year,data=stat_bod_year_trim) + stat_smooth(method="lm",se=FALSE)
+
+```
+
+In this new plot, the status count data are in the range of 0 to 20. Now using linear regression to check whether I can get a better model.
+
+```{r}
+
+m_log_stat_year_trim <- lm(year~count, data = stat_bod_year_trim) 
+summary(m_log_stat_year_trim)
+
+plot(m_log_stat_year_trim)
+
+```
+
+The new linear regression model seems better than the previous one. The p-value of t-test for slope is small enough to reject the null hyphothesis. The residual plot is better than previous one which is not violated the model assumptions. 
+
+
+To compare whethere the transform will provide a better model
+
+```{r}
+stat_data <- data.frame(count = twitter_data$statuses_count, year = twitter_data$dob_year )
+trim_condition <- stat_bod_year$year > 1925
+stat_bod_year_trim <- stat_data[trim_condition,]
+m_stat_year_trim <- lm(year~count, data = stat_data)
+m_log_stat_year_trim <- lm(year~log(count), data = stat_data) 
+
+anova( m_stat_year_trim, m_log_stat_year_trim)
+
+```
+
+The result of anova should that the second tranformed data performed better than the first one because of the higher F value.
+
+In summary, the formula of transformed data is 
+
+$$ {dobyear} = 1974 + 0.4382* log(x_{statuses count}) + \varepsilon $$
+
+
+##To find significant linear models
+
+According to the first question, I find in column gender, there are "NA" data. First of all, I remove all NA data from twitter data 
+```{r} 
+trim_data = subset(twitter_data, gender =="female" | gender == "male")
+
+#relation of wage and age
+summary(lm(wage~age, data = trim_data ))
+
+#realation of wage and education
+summary(lm(wage~education, data = trim_data ))
+
+#realation of wage and height
+summary(lm(wage~height,data = trim_data ))
+
+#relation of wage and experience
+summary(lm(wage~experience,data = trim_data))
+
+#relation of age and followers_count
+summary(lm(age~log(followers_count+1),data = trim_data))
+
+#relation of education and followers_count
+summary(lm(education~log(followers_count+1),data = trim_data))
+
+#relation of heigh and followers_count
+summary(lm(height~log(followers_count+1),data = trim_data))
+
+```
+
+The results find two significant linear models. One is wage and height which the p-values of beta0 and beta1 is smaller than 0.001. And the other one is height and log transformed followers_count.
+
+###linear model of wage and height
+```{r}
+
+m_wage_height <- lm (wage~height, data=trim_data)
+summary(m_wage_height)
+
+```
+
+* Is the relationship significant?
+
+According to results of t-test, it shows that the p-value of intercept and solpe are all smaller than 0.001, which means I can reject the null hyphothesis and accept the althernative one. The relationship is significant. 
+The model is:
+
+&& {wage} = -26.02944 + 0.28533* x_{height} + \varepsilon  &&
+
+
+```{r}
+plot(m_wage_height)
+
+```
+
+* Are any model assumptions violated?
+
+In the residual vs fitted plot, the residuals are not bounce randomly arount the 0 line. It should be evenly distributed on the both side of the 0 line. Here, the residual are mainly located above the horizon line. So the residuals are not homoscedastic. It violated the model assumptions.
+
+In the QQ plot, only the data between -1 to 1 are on the dashed line. most of the dots are not on the dashed line. If the residuals are normal distribution, most of the dot should be on the dashed line. So the residuals are not from noraml distribution. It violated the model assumptions.
+
+In the Scale Location plot, It is easy to find a similar pattern as residual vs fitted plot. This graph also show whether the residuals are homoscedastic. Most of the data are above the red line. And the red line is not flat and is skewed. So the residuals are not homoscedastic. It violated the model assumptions.
+
+In the residuals vs leverage plot, the red smoothed line stays close to the horizontal gray dashed line, and no points have a large Cook's distance. So there are no points which will influence the regression significantly.
+
+* Does the model make sense?
+
+The linear regression shows that the height and wage have a positive relationship. If the height increase 1 unit, the wage will increase 0.285 unit. However, The relationship of height and wage reflect the relationship of gender and wage. In last lesson, we know that men make more money than woman, and men is taller than women. Now, I decide to use only women' wage and height data to see whether they still have this relationship
+
+```{r}
+
+trim_data_F <- subset(twitter_data, gender =="female" )
+
+m_wage_height_F <- lm (wage~height, data=trim_data_F)
+summary(m_wage_height_F)
+
+```
+
+The P-value of solpe in t-test is 0.708 which is larger then 0.001. I can't reject the null hyphothesis. That means the linear model of wage and height is not longer significant with the control of gender.
+
+The height is associated with gender so this model makes sense.
+
+
+
+###linear model of height and log transformed followers_count
+```{r}
+
+m_height_followers <- lm (height~log(followers_count+1),data = trim_data)
+summary(m_height_followers)
+
+```
+
+* Is the relationship significant?
+
+According to results of t-test, it shows that the p-value of intercept and solpe are all smaller than 0.001, which means I can reject the null hyphothesis and accept the althernative one. The relationship is significant. 
+The model is:
+
+$${height} = 172.66988 -0.1565* log(x_{followers count}+1)+\varepsilon  $$
+
+
+```{r}
+plot(m_height_followers)
+
+```
+
+* Are any model assumptions violated?
+
+In the residual vs fitted plot, the residuals are bounce randomly arount the 0 line. It shows evenly distributed on the both side of the 0 line. So the residuals are homoscedastic. It didn't violate the model assumptions.
+
+In the QQ plot, only the data between -1 to 1 are on the dashed line. most of the dots are not on the dashed line. If the residuals are normal distribution, most of the dot should be on the dashed line. So the residuals are not from noraml distribution. It violated the model assumptions.
+
+In the Scale Location plot, It shows a similar pattern as residual vs fitted plot. Most of the data are on the both sides of the red line. And the red line is flat. So the residuals are homoscedastic. It didn't violate the model assumptions.
+
+In the residuals vs leverage plot, the red smoothed line stays close to the horizontal gray dashed line, and no points have a large Cook's distance. So there are no points which will influence the regression significantly.
+
+* Does the model make sense?
+The linear regression shows that the height and followers count have a negtive relationship. If the log transtform followers count increase 1 unit, the height will decrease 0.1565 unit. This model is useful for twitter to predict the height of the users.Howeve, we have known that the height may be effected by gender according to the last model. Now, I decide to control the gender variable and test whether they still have this relationship
+
+```{r}
+
+trim_data_F <- subset(twitter_data, gender =="female" )
+
+m_height_followers_F <- lm (height~log(followers_count+1), data=trim_data_F)
+summary(m_height_followers_F)
+
+```
+
+The P-value of solpe in t-test is 0.293 which is larger then 0.001. I can't reject the null hyphothesis. That means the linear model of log transformed followers count and height is not longer significant with the control of gender.
+
+It seems women have more followers than men. and this model makes sense.
+
+
+##A multivariate relation between wage & height, race, age, education, and experience
+
+First, I must define response variable and explanatory variables. For these variables, wage is better to choose as explanatory variable and the others are used as explanatory.
+
+* Is the relationship significant?   
+
+```{r}
+
+m_multi <- lm(wage~height+race+age+education+experience, data = trim_data)
+summary(m_multi)
+anova(m_multi)
+
+```
+
+According to the results of anova, the p-value of height  in F-test is smaller than 0.001, so I can reject the null hyphothesis which all betas are equal to zero. The realtionship is significant.
+
+* Are any model assumptions violated? 
+
+```{r}
+library(lmtest)
+library(nortest)
+plot(m_multi)
+model_resid <- resid(m_multi)
+
+#test normality using Lilliefors (Kolmogorov-Smirnov) normality test
+lillie.test(model_resid)
+
+#test the homoscedasticity using Breusch and Pagan Test
+bptest(m_multi, studentize = FALSE )
+
+```
+
+In the residual vs fitted plot, the residuals are not bounce randomly arount the 0 line. It should be evenly distributed on the both side of the 0 line. Here, the residual are mainly located above the horizon line. I also use Breusch and Pagan test to check the homoscedastic. The p-value of test is smaller than 0.001, and I can reject the null hyphothesis. So the residuals are not homoscedastic. It violated the model assumptions.
+
+In the QQ plot, only the data between -1 to 2 are on the dashed line. most of the dots are not on the dashed line. If the residuals are normal distribution, most of the dot should be on the dashed line. I also use Lilliefors (Kolmogorov-Smirnov) normality test to check the normality. The p-value is smaller than 0.001, and I can reject the null hyphothesis. So the residuals are not from noraml distribution. It violated the model assumptions.
+
+In the Scale Location plot, It is easy to find a similar pattern as residual vs fitted plot. This graph also show whether the residuals are homoscedastic. Most of the data are above the red line. And the red line is not flat and is skewed. So the residuals are not homoscedastic. It violated the model assumptions.
+
+In the residuals vs leverage plot, the red smoothed line stays close to the horizontal gray dashed line, and no points have a large Cook's distance. So there are no points which will influence the regression significantly.
+
+
+
+* Is there any multi-colinearity in multivariate models? 
+
+```{r}
+
+trim_data_mul <- data.frame(trim_data$wage, trim_data$height, as.numeric(trim_data$race), trim_data$age, trim_data$education, trim_data$experience )
+
+pairs(trim_data_mul)
+
+names(trim_data_mul) <- c("wage","height","race","age", "education", "experience")
+
+cor(trim_data_mul)
+
+
+```
+
+Calculating the correlation of each two variables, it shows that no two predictor variables in this model are highly correlated. No multi-colinearity is in this model.   
+
+
+* In in multivariate models are predictor variables independent of all the other predictor variables?
+
+```{r}
+
+for (i in (2:5)){
+  for (j in ((i+1):6)){
+    test <- cor.test(trim_data_mul[,i],trim_data_mul[,j])
+    print(c(colnames(trim_data_mul)[i], colnames(trim_data_mul)[j]))
+    print(test$p.value)
+  }
+}
+
+```
+
+According to the results of correlation test, the height vs age, height vs experience have non-zero correlation which means this two groups are not indepent, becauset the p-value of correlation test of them are both smaller than 0.001 and I can reject the null hypothesis. the height vs age and the height vs experience are not independent.
+
+
+* In multivariate models rank the most significant predictor variables and exclude insignificant one from the model.
+
+Using backward elimination to select the best predictors. 
+
+```{r}
+
+beg <- lm(wage~height+race+age+education+experience, data=trim_data_mul)
+end <- lm(wage~., data=trim_data_mul)
+empty <- lm(wage ~ 1, data = trim_data_mul)
+bounds <- list(upper = end, lower = empty)
+backward_elim_reg <- step(beg, bounds, direction = "backward")
+backward_elim_reg
+
+```
+
+According to the backward elimination regression results, The smaller AIC is, the better result. So I choose two most significant predictor variables and get the model:
+
+$${wage} =-26.83182+0.28542*x_{height} + 0.06297*x_{education}+\varepsilon$$
+
+To check whether this model have interaction terms 
+
+```{r}
+
+m_mul_wage_final <- lm(wage ~ height+education+height:education , data= trim_data_mul)
+
+anova(m_mul_wage_final)
+
+```
+
+The p-value of F-test of interaction term is 0.36 which is larger then 0.01. I can't reject the null hyphothesis. There is no interaction term.  
+
+
+To analyze the final two variables
+
+```{r}
+
+m_mul_wage_final <- lm(wage ~ height+education , data= trim_data_mul)
+summary(m_mul_wage_final )
+anova(m_mul_wage_final )
+
+```
+
+T-test results show that the p-value of education is 0.08752 which is larger than 0.001, and I can't reject the null hyphothesis. The education variable is not significant. And the F-test results show the the p-value of height is small enough to reject the null hyphotheis, this model is significant.
+
+So the multiple linear regression model fomula is 
+
+  $${wage} =-26.83182+0.28542*x_{height} + 0.06297*x_{education}+\varepsilon$$
+  
+* Does the model make sense?
+
+In my final model, the wage has a positive relationship with height and education. I thinks it makes sense. 
+
+First, according to the previous analysis, height is associate with gender. In genera, men is taller than women, and men earn more than women. The relationship between wage and gender refect the relationship between gender and wage.
+
+Second, my model also shows that the higher education a person is, the more he/she earns. The higher education means take more time to improve herself/himself. The oppotunity cost will be paid by higher wage. 
+
+Third, there is no interaction of height and education also explain the fact the getting a high education has nothing to do with height. And the coefficient of each variable show the extent that it effect on wage which gender(height) have more effect on wage than education. 
+
+
+### A significant logistic linear model of your choosing 
+
+In gender, there are "NA" data. I will not choose these data.   
+
+```{r}
+
+trim_data = subset(twitter_data, gender =="female" | gender == "male")
+qplot( trim_data$gender, trim_data$height) + geom_boxplot()
+
+```
+
+There are no obvious outliers in the boxplot, the trimmed data can be used in following analysis.
+
+* Is the relationship significant? 
+
+```{r}
+m_height_gender <- lm(as.numeric(trim_data$gender)~trim_data$height)
+summary(m_height_gender)
+anova(m_height_gender)
+qplot(height, gender, data = trim_data )+stat_smooth(method="lm",se=FALSE)
+
+```
+ 
+The p-value of t-test of beta0 and beta1 are smaller than 0.001, and I can reject the null hyphothesis. These two coefficients are significant.
+
+The p-value of F-test is also smaller than 0.001, and I can reject the null hyphothesis. This model is singinicant. 
+
+This logistic linear model's formula is:
+
+$$ {gender} = -5.33 + 0.0407324 * x_{height}+\varepsilon $$
+ 
+ 
+* Are any model assumptions violated? 
+
+```{r}
+
+bptest(m_height_gender, studentize = F)
+
+lillie.test(resid(m_height_gender))
+
+plot(m_height_gender)
+
+```
+
+I use Breusch-Pagan test to check the homoscedastic. The p-value is smaller than 0.001 which I reject the null hyphothesis. The residuals are not homoscedastic. The residuals plot - Residuals vs Fitted and Scale-location also prove it becasue the red lines of both plots are not flat. 
+
+I use Lilliefors (Kolmogorov-Smirnov) normality test to check the normality. The p-value is smaller than 0.001 which I reject the null hyphothesis. The residuals are not from normal distribution. The QQ-plot prove it too. Only the dot from range -1 to 1 are on the dashed line and most of the dots are not on the line. 
+
+Although there are no significant leverage dots in the data, but red line is not flat. No points have a large Cook's distance. In all, there are no points which will influence the regression significantly.
+
+In summary, the residuals violated assumptions.
+  
+* Does the model make sense? Why or why not? 
+
+The model makes sense. In this model, height and gender have a positive relationship. This heighter a person is, the more possible the person is man. And it is close to the fact that men is taller than woman on average.  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+

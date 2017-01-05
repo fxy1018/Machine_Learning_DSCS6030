@@ -1,0 +1,269 @@
+---
+title: "M4L2_Assignment"
+author: "Xueyi Fan"
+date: "June 13, 2016"
+output: word_document
+---
+#Assignment:
+
+* First, go to the UC Irvine Machine Learning Repository at https://archive.ics.uci.edu/ml/ and find a dataset for clustering. Note that every student MUST use a different dataset so you MUST get approved for which data you are going to use. You will use this dataset for this module on unsupervised learning and the next on supervised learning.
+
+* Next, cluster some of your data using k-means, PAM and hierarchical clustering.
+
+* Finally, answer the following questions:
+
+1. How did you choose a k for k-means? 
+
+2. Evaluate the model performance. How do the clustering approaches compare on the same data?
+
+3. Generate and plot confusion matrices for the k-means and PAM. What do they tell you?
+
+4. Generate centroid plots against the 1st two discriminant functions for k-means and PAM. What do they tell you? 
+
+5. Generate silhouette plots for PAM. What do they tell you?
+
+6. For the hierarchical clustering use all linkage methods (Single Link, Complete Link, Average Link, Centroid and Minimum energy clustering) and generate dendograms. How do they compare on the same data? 
+
+7. For the hierarchical clustering use both agglomerative and divisive clustering with a linkage method of your choice and generate dendograms. How do they compare on the same data? 
+
+8. For the hierarchical clustering use centroid clustering and squared Euclidean distance and generate dendograms. How do they compare on the same data?
+
+
+Loading the packages:
+
+```{r}
+
+library('ggplot2')
+library('cluster')
+library('amap')
+library('useful')
+
+```
+
+Here, I choose the [Breast Cancer Wisconsin (Prognostic) data set](https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/)
+
+Loading the data:
+
+```{r}
+
+data_url <- 'https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wpbc.data'
+
+cancer_data <- read.table(url(data_url), sep = ',')
+
+#cancer_data <- read.table('wpbc.data.txt', sep = ',')
+
+names(cancer_data) <- c('ID number', 'Outcome','Time','radius_mean','texure_mean','perimeter_mean','area_mean','smoothness_mean','compactness_mean','concavity_mean','concave_points_mean','symmetry_mean','fractal_dimension_mean', 'radius_SE','texure_SE','perimeter_SE','area_SE','smoothness_SE','compactness_SE','concavity_SE','concave_points_SE','symmetry_SE','fractal_dimension_SE','radius_worst','texure_worst','perimeter_worst','area_worst','smoothness_worst','compactness_worst','concavity_worst','concave_points_worst','symmetry_worst','fractal_dimension_worst','tumor_size','lymph_node_status') 
+cancer <- data.frame(cancer_data[,3:34])
+head(cancer)
+str(cancer)
+```
+
+In the breast cancer dataset, there are 35 columns. Two of them are factors and others are number. Here I use column 3-34 as the clustering data.
+
+## Cluster data using k-means
+
+```{r}
+
+k <- 6
+cancer.6.kmeans <- kmeans(cancer, centers = 6)
+cancer.6.kmeans
+
+```
+
+## Cluster data using PAM
+
+```{r}
+
+k<-6
+cancer.6.pam <- pam(cancer,k,keep.diss=TRUE, keep.data= TRUE)
+cancer.6.pam
+
+```
+
+## Cluster data using hierarchical clustering
+
+```{r}
+
+cancer.h.clust <- hclust(d=dist(cancer))
+cancer.h.clust
+plot(cancer.h.clust,labels=F)
+
+```
+
+
+### 1. How did you choose a k for k-means? 
+
+```{r}
+#plot the sum of squares responding to each cluster
+sos <- rep(NA,10)
+for (i in 1:10){
+  sos[i] <- kmeans(cancer, centers=i)$tot.withinss
+} 
+
+plot(sos[c(1:10)], type="b",xlab="Number of Clusters", ylab="sum of squares")
+
+#Hartigan's rule
+best<- FitKMeans(cancer, max.cluster =10, seed = 66)
+PlotHartigan(best)
+
+
+```
+
+First, I plot the sum of squares against different k. The value of sos is decreasing as the k increast. Specially, the sos value show quickly decreasing at the range of 2 to 6. 
+
+Second, I also use Hartigan's rule to determine the k. The rule is that if the value of hartigan is greater than 10, it is justifiable to add the extra group. According to the Hartigan's Rule plot, it is accepable that k is smaller than 10. And the value is decreasing rapidly before k is 6.
+
+So I chhose k=6 for k-means
+
+### 2. Evaluate the model performance. How do the clustering approaches compare on the same data?
+
+There are many ways evaluating the model performance. For example, using correlation to measure cluster validity, using similarity matrix like Davies-Bouldin index, Dunn index, Silhouette coefficient, purity, entropy, kullback-leibler divergence, jaccard similarity coefficientr and rand index. 
+
+Here, I use Davies-Bouldin index to evalute the model performance.
+
+```{r}
+library("clusterSim")
+
+#evaluate the k-means model performance
+
+#look at the size
+cancer.6.kmeans$size
+#look at the cluster centers
+cancer.6.kmeans$centers
+
+print(index.DB(cancer, cancer.6.kmeans$cluster, centrotypes="centroids"))
+
+#evaluate the PAM model performance
+
+#look at the medoids
+cancer.6.pam$medoids
+#look at the cluster information
+cancer.6.pam$clusinfo
+
+print(index.DB(cancer, cancer.6.pam$clustering, centrotypes="centroids"))
+
+#evaluate the hierarchical clustering performance
+
+hcl6 <- cutree(cancer.h.clust,k=6)
+print(index.DB(cancer, hcl6, centrotypes="centroids"))
+
+```
+
+Comparing the DB index of three methods, the index of kmeans is the smallest, which shows that the clusters produced by kmeans have relative low intra-cluster distance and high inter cluster distance. Kmeans performance better than the other two methods.
+
+
+### 3. Generate and plot confusion matrices for the k-means and PAM. What do they tell you?
+
+    The confusion matrix is a 2*2 table with counts of the true positive, true negative, false positive and false negative.
+
+    Here, the dataset contains a column named "outcome", which represents the recur and nonrecur. I have to use k-means and PAM to get 2 clusters and make the confusion matrices.
+
+```{r}
+
+#confusion matrics for k-means
+k<-2
+cancer.2.kmeans <- kmeans(cancer,centers=k)
+cm <- table(cancer_data$Outcome,cancer.2.kmeans$cluster)
+cm
+plot(cm)
+
+#confusion matrics for PAM
+cancer.2.pam<- pam(cancer,k,keep.diss=TRUE, keep.data= TRUE)
+cm2 <- table(cancer_data$Outcome,cancer.2.pam$clustering)
+cm2
+plot(cm2)
+
+```
+
+These two approaches have a large number of false positive and false negative. In k-means, although most of nonrecur patients are clustered togethe, the recur patients can't be clustered well. In PAM, recur patients can be clustered well but noncur patients can't. 
+
+That means these two approaches don't have good performance on dividing the data into two clusters. 
+
+### 4. Generate centroid plots against the 1st two discriminant functions for k-means and PAM. What do they tell you? 
+
+```{r}
+
+#for k-means
+clusplot(cancer, cancer.6.kmeans$cluster, color=T, shade= T ,lines=0)
+
+#for PAM
+clusplot(cancer,cancer.6.pam$cluster, color=T, shade= T,lines=0)
+
+```
+
+   A centroid plot is to visualize the centroid for each of the clusters resulting from a partitional clustering experiment. In plots of k-means or PAM, four clusters show overlap but it has two culters seperate well. 
+
+### 5. Generate silhouette plots for PAM. What do they tell you?
+
+```{r}
+#dissC <- daisy(cancer)
+#sp<- silhouette(cancer.6.pam$clustering, dissC)
+#plot(sp)
+plot(cancer.6.pam,which.plot=2)
+
+```
+
+Silhouette value is a measure of how similar an object is to its own cluster compared to other clusters. In the plots of PAM, the value of cluster 5 and cluster 6 are close to one for each cluster, these two fits are good, but others are not fit so well.
+
+
+### 6. For the hierarchical clustering use all linkage methods (Single Link, Complete Link, Average Link, Centroid and Minimum energy clustering) and generate dendograms. How do they compare on the same data? 
+
+```{r}
+
+#use all linkage methods (Single Link, Complete Link, Average Link, Centroid and Minimum energy clustering) and generate dendograms
+
+cancer.h.clust.si <- hclust(d=dist(cancer),method="single")
+cancer.h.clust.co <- hclust(d=dist(cancer),method="complete")
+cancer.h.clust.av <- hclust(d=dist(cancer),method="average")
+cancer.h.clust.ce <- hclust(d=dist(cancer),method="centroid")
+
+library('energy')
+cancer.h.clust.mi <- energy.hclust(dist(cancer),alpha=1)
+plot(cancer.h.clust.si,labels=F)
+plot(cancer.h.clust.co,labels=F)
+plot(cancer.h.clust.av,labels=F)
+plot(cancer.h.clust.ce,labels=F)
+plot(cancer.h.clust.mi, labels=F)
+
+```
+
+Using different linkage method will have different clustering result. the method "average" and method "centroid" have similar clustering pattern
+
+### 7. For the hierarchical clustering use both agglomerative and divisive clustering with a linkage method of your choice and generate dendograms. How do they compare on the same data? 
+
+```{r}
+
+#use both agglomerative and divisive clustering with a linkage method of your choice and generate dendograms
+
+#agglomerative clustering
+cancer.h.clust.agg <- hclust(d=dist(cancer),method="single")
+  
+  
+#divisive clustering
+cancer.h.clust.div <- diana(cancer)
+
+plot(cancer.h.clust.agg,labels=F)
+plot(cancer.h.clust.div,labels=F)
+
+```
+
+Agglomerative clustering is a "bottom-up" strategy, and the divisive clustering is a "top-down" strategy. The results of these two methods are totally different. 
+
+
+### 8. For the hierarchical clustering use centroid clustering and squared Euclidean distance and generate dendograms. How do they compare on the same data?
+
+```{r}
+
+#use centroid clustering and squared Euclidean distance and generate dendograms.
+
+cancer.h.clust.ce <- hclust(d=dist(cancer),method="centroid")
+cancer.h.clust.cen.euc <- hclust(dist(cancer)^2, method="centroid" )
+
+plot(cancer.h.clust.ce, labels=F)
+plot(cancer.h.clust.cen.euc, labels=F)
+
+```
+
+The result of clustering with squared Euclidean distance is different from clustering with Euclidean distance. However, it is simialr to the minimum energy. 
+
+

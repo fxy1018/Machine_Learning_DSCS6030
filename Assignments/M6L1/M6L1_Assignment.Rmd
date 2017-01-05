@@ -1,0 +1,147 @@
+---
+title: "M6L1_Assignment"
+author: "Xueyi Fan"
+date: "June 29, 2016"
+output: word_document
+---
+#Assignment:
+1. Go to the UC Irvine Machine Learning Repository and find a dataset for supervised classification. Every student MUST use a different dataset so you MUST get approved for which you can going to use. This can be the same dataset you used for the unsupervised clustering as long as the data has some labeled data.
+2. Classify your data using k-Nearest Neighbors. Answer the following questions:
+  + Does the k for kNN make a difference? Try for a range of values of k.
+  + Does scaling, normalization or leaving the data unscaled make a difference for
+kNN?
+
+```{r}
+library("ggplot2")
+library("class")
+```
+
+##Choosing a dataset from the UC Irvine Machine Learning Repository
+Here, I choose the [Breast Cancer Wisconsin (Diagnostic) data set](https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/)
+
+```{r}
+
+data_url <- 'https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data'
+
+data <- read.table(url(data_url), sep = ',')
+
+names(data) <- c('ID number', 'Diagnosis','radius_mean','texure_mean','perimeter_mean','area_mean','smoothness_mean','compactness_mean','concavity_mean','concave_points_mean','symmetry_mean','fractal_dimension_mean', 'radius_SE','texure_SE','perimeter_SE','area_SE','smoothness_SE','compactness_SE','concavity_SE','concave_points_SE','symmetry_SE','fractal_dimension_SE','radius_worst','texure_worst','perimeter_worst','area_worst','smoothness_worst','compactness_worst','concavity_worst','concave_points_worst','symmetry_worst','fractal_dimension_worst') 
+
+head(data)
+str(data)
+summary(data)
+
+#shuffle the data 
+set.seed(123)
+cancer_data <- data[order(runif(nrow(data))),]
+cancer_data[,2]
+
+```
+
+##Classifing the data using k-Nearest Neighbors
+
+###1. Does the k for kNN make a difference? Try for a range of values of k.
+
+The size of my dataset is 569, so I will try all odd values in the range 1 to 48 to break ties. First of all, I will normalize my data
+
+```{r}
+
+#to normalized data
+normalize <- function(x) {
+  return((x-min(x))/(max(x)-min(x)))
+}
+cancer.normalized <- as.data.frame(lapply(cancer_data[,c(3:32)],normalize))
+head(cancer.normalized)
+summary(cancer.normalized)
+
+```
+
+Classify the data using k-Nearest Neighbors
+```{r}
+
+cancer.normalized.train <- cancer.normalized[1:500,]
+cancer.normalized.test <- cancer.normalized[501:569,]
+cancer.normalized.train.target<- cancer_data[1:500,2]
+cancer.normalized.test.target <- cancer_data[501:569,2]
+
+summary(cancer_data[501:569,2])
+
+for(k in seq(1,47,2)){
+  knn.cancer <- knn(train = cancer.normalized.train, test = cancer.normalized.test, cancer.normalized.train.target, k)
+  print(k)
+  print(knn.cancer)
+  cm <- table(cancer.normalized.test.target, knn.cancer)
+  print(cm)
+}
+
+```
+
+The value of k for kNN makes a difference. For example: when k is 1 and 3, there are three misclassifications; When k is from 5 to 13, there are only two misclassifications which the kNN has a good performance; when k is 17, there are four misclassifications, and when k is 19, there are five misclassifications and the kNN has a relatively bad performance. As the increment of k, the performance of kNN is different. So the value of k makes a difference for kNN.
+
+###2. Does scaling, normalization or leaving the data unscaled make a difference for kNN? why or why not? 
+
+I will use three types of data (sclaing, normalization, unscaled) to do kNN, and choose k=5
+
+```{r}
+k <- 5
+
+#to scale the data
+cancer.scaled <- as.data.frame(lapply(cancer_data[,c(3:32)], scale))
+head(cancer.scaled)
+summary(cancer.scaled)
+
+#to normalize the data
+normalize <- function(x) {
+  return((x-min(x))/(max(x)-min(x)))
+}
+cancer.normalized <- as.data.frame(lapply(cancer_data[,c(3:32)],normalize))
+head(cancer.normalized)
+summary(cancer.normalized)
+
+#leaving the data unscaled
+cancer.unscaled <- as.data.frame(cancer_data[,c(3:32)])
+head(cancer.unscaled)
+summary(cancer.unscaled)
+
+#classify using kNN for scaled data
+cancer.scaled.train <- cancer.scaled[1:500,]
+cancer.scaled.test <- cancer.scaled[501:569,]
+cancer.scaled.train.target<- cancer_data[1:500,2]
+cancer.scaled.test.target <- cancer_data[501:569,2]
+knn.cancer.scaled <- knn(train = cancer.scaled.train, test=cancer.scaled.test, cancer.scaled.train.target, k)
+cm.cancer.scaled <- table(cancer.scaled.test.target, knn.cancer.scaled)
+
+
+#classify for normalized data
+cancer.normalized.train <- cancer.normalized[1:500,]
+cancer.normalized.test <- cancer.normalized[501:569,]
+cancer.normalized.train.target<- cancer_data[1:500,2]
+cancer.normalized.test.target <- cancer_data[501:569,2]
+knn.cancer.normalized <- knn(train = cancer.normalized.train, test=cancer.normalized.test, cancer.normalized.train.target, k)
+cm.cancer.normalized <- table(cancer.normalized.test.target,knn.cancer.normalized)
+
+
+#classify for unscaled data
+cancer.unscaled.train <- cancer.unscaled[1:500,]
+cancer.unscaled.test <- cancer.unscaled[501:569,]
+cancer.unscaled.train.target<- cancer_data[1:500,2]
+cancer.unscaled.test.target <- cancer_data[501:569,2]
+knn.cancer.unscaled <- knn(train = cancer.unscaled.train, test=cancer.unscaled.test, cancer.unscaled.train.target, k)
+cm.cancer.unscaled <- table(cancer.unscaled.test.target, knn.cancer.unscaled)
+
+#to compare the results of three types of data
+knn.cancer.scaled
+knn.cancer.normalized
+knn.cancer.unscaled
+
+cm.cancer.scaled
+cm.cancer.normalized
+cm.cancer.unscaled
+
+```
+
+Scaling, normalization or leaving the data unscaled makes a difference for kNN. I choose 5 as the value of k. For the scale data, the number of misclassification is one; for the normalized data, there are two misclassifications; for the unscaled data the number of misclassification is nine. So the scaled data has the best performance and unscaled data has the worst performance using my randomly shuffled data.
+
+The reason is that k-Nearest Neighbors will generate clusters besed on the distance. The large number will be dominant in distance or dissimilarity calculation.
+
+

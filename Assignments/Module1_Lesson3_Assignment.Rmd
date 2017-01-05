@@ -1,0 +1,801 @@
+---
+title: "Module1_Lesson3_Assignment"
+output: word_document
+---
+
+## M1L3 Homework Assignment
+
+Xueyi Fan 05/15/2016
+
+_Exploratory Data Analysis assignment_
+
+* Load the file M01_quasi_twitter.csv
+* Answer the following questions for the data in each column:
+    * How is the data distributed?
+    * Test distribution assumptions (e.g. normal distributions or skewed?)
+    * What are the summary statistics?
+    * Are there anomalies/outliers?
+* identify useful raw data & transforms (e.g. log(x))
+* identify data quality problems
+* identify outliers
+* identify subsets of interest
+* suggest functional relationships
+
+##Answer
+
+* Load the file M01_quasi_twitter.csv
+
+```{r}
+library("ggplot2")
+library("reshape2")
+library("e1071")                   
+
+file_L3<- "/Users/fanxueyi/Documents/NEU Bioinformatics/DSCS6030 Intro Data Mining:Machine Learing/Module1_Getting_to_Know_a_Data_Set/Assignment/M01_quasi_twitter.csv"
+
+L3Q1_data <- read.csv(file_L3)
+str(L3Q1_data)
+names(L3Q1_data)
+
+```
+
+* Answer the following questions for the data in each column:
+    * How is the data distributed?
+    * Test distribution assumptions (e.g. normal distributions or skewed?)
+    * What are the summary statistics?
+    * Are there anomalies/outliers?
+
+###Column1 Screen_name
+
+```{r}
+
+head(L3Q1_data$screen_name)
+
+```
+
+This column contains different names, This column doesn't have distribution
+
+###Column2,3,4 created_at_month, day, year
+
+* created_at_month 
+
+```{r}
+#distribution
+qplot(created_at_month, data = L3Q1_data,geom = "bar") 
+
+#summary statistics
+summary(L3Q1_data$created_at_month)
+
+```
+
+The data created_at_month is from uniform distribution. March and Apirl have more creations than other month. 
+
+
+* created_at_day
+
+```{r}
+#distribution
+qplot(created_at_day, data = L3Q1_data,geom = "bar") 
+
+#summary statistics
+summary(L3Q1_data$created_at_day)
+
+```
+
+The data created_at_day is from uniform distribution. It seems users don't have a preference on the data to create a account.
+
+* created_at_year
+
+```{r}
+#distribution
+qplot(created_at_year, data = L3Q1_data,geom = "bar") 
+
+#summary statistics
+summary(L3Q1_data$created_at_year)
+
+```
+
+It's hard to decide which kind of distribution that the created_at_year comes from. But the plot shows that at the beginning years, the number of usrer increases.
+
+
+###Column5 country
+
+```{r}
+#distribution
+qplot(country, data = L3Q1_data,geom = "bar") 
+
+#summary statistics
+summary(L3Q1_data$country)
+
+```
+
+
+The plot shows that most of the users of twitter come from USA which is far greater than other countries.
+
+###Column6 location
+
+```{r}
+#distribution
+qplot(location, data = L3Q1_data,geom = "bar") 
+
+#summary statistics
+summary(L3Q1_data$location)
+
+```
+
+The location data are from uniform distribution. but there are three locations have a greater value than other locations which seem to be outliers.
+
+
+###Column7,8,9,10,11 friend_count, followers_count, statuses_count, favourites_count, favourited_count
+
+* friend_count
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$friends_count)
+
+#distribution
+qplot(friends_count, data = L3Q1_data) 
+
+#Outliers
+qplot(1, friends_count, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from -84 to 660500, the mean is 1058 and median is 324. The minimum number is negative which is outlier.
+
+The boxplot also show there are at least 9 outliers above the top whisker.
+
+This histogram couldn't tell us the distribution of the data because the existence of outliers. So I zoom in the range from 0 to 2e+03
+
+```{r}
+#distribution
+qplot(friends_count, data = L3Q1_data, xlim = c(0,2*10^3) )
+qplot(friends_count, data = L3Q1_data, xlim = c(0,2*10^3), geom = "density")
+
+```
+
+The major number of friends are around 100.
+
+* followers_count
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$followers_count)
+
+#distribution
+qplot(followers_count, data = L3Q1_data) 
+
+#Outliers
+qplot(1, followers_count, data = L3Q1_data, geom = "boxplot")
+
+```
+
+
+The summary statistics show that the range of data is from 0 to 22190000, the mean is 5859 and median is 336. The median is not equal to the mean which implicate that there are some outlieres in the data. 
+
+The boxplot also show there are at least 6 outliers above the top whisker.
+
+This histogram couldn't tell us the distribution of the data because the existence of outliers. So I zoom in the range from 0 to 5.0e+03
+
+```{r}
+#distribution
+qplot(followers_count, data = L3Q1_data, xlim = c(0,5*10^3) ) 
+qplot(followers_count, data = L3Q1_data, xlim = c(0,2*10^3), geom = "density")
+
+```
+
+The major number of followers are around 100.
+
+* statuses_count
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$statuses_count)
+
+#distribution
+qplot(statuses_count, data = L3Q1_data) 
+
+#Outliers
+qplot(1, statuses_count, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from 1 to 1136000, the mean is 12490 and median is 2341. The median is not equal to the mean which implicate that there are some outlieres in the data. 
+
+The boxplot also show there are at least 15 outliers above the top whisker.
+
+This histogram couldn't tell us the distribution of the data because the existence of outliers. So I zoom in the range from 0 to 25000
+
+```{r}
+#distribution
+qplot(statuses_count, data = L3Q1_data, xlim = c(-1,25000) ) 
+qplot(statuses_count, data = L3Q1_data, xlim = c(-1,25000), geom = "density")
+
+```
+
+The major number of followers are around 1000.
+
+* favourites_count
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$favourites_count)
+
+#distribution
+qplot(favourites_count, data = L3Q1_data) 
+
+#Outliers
+qplot(1, favourites_count, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from 0 to 1140000, the mean is 2217 and median is 164. The median is not equal to the mean which implicate that there are some outlieres in the data. 
+
+The boxplot also show there are at least 10 outliers above the top whisker.
+
+This histogram couldn't tell us the distribution of the data because the existence of outliers. So I zoom in the range from 0 to 10000
+
+```{r}
+#distribution
+qplot(favourites_count, data = L3Q1_data, xlim = c(0,10^4) ) 
+qplot(favourites_count, data = L3Q1_data, xlim = c(0,10^4), geom = "density")
+
+```
+
+The major number of followers are around 500.
+
+
+*  favourited_count
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$favourited_count)
+
+#distribution
+qplot(favourited_count, data = L3Q1_data) 
+
+#Outliers
+qplot(1, favourited_count, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from 0 to 105000, the mean is 92.24 and median is 9. The median is not equal to the mean which implicate that there are some outlieres in the data. 
+
+The boxplot also show there are at least 10 outliers above the top whisker.
+
+This histogram couldn't tell us the distribution of the data because the existence of outliers. So I zoom in the range from 0 to 7000
+
+```{r}
+#distribution
+qplot(favourited_count, data = L3Q1_data, xlim = c(0,1000) ) 
+qplot(favourited_count, data = L3Q1_data, xlim = c(0,1000), geom = "density")
+
+```
+
+The major number of followers are around 30.
+
+However,the histogram of all count column can't show the distribution of these data. The data need to do some transformation.
+
+###Column12,13,14 dob_day, dob_year, dob_month
+
+* dob_day 
+
+```{r}
+#distribution
+qplot(dob_day, data = L3Q1_data,geom = "bar") 
+
+#summary statistics
+summary(L3Q1_data$dob_day)
+
+```
+
+The data dob_day is from uniform distribution.But there are more people on first day of month than other days.
+
+* dob_year 
+
+```{r}
+#distribution
+qplot(dob_year, data = L3Q1_data,geom = "bar") 
+
+#summary statistics
+summary(L3Q1_data$dob_year)
+
+```
+
+The data dob_year are from 1900 to 2000. However, the year 1900 is not what we expect which may be a outlier. Most of people are bone in 1987 and 1989.
+
+* dob_month  
+
+```{r}
+#distribution
+qplot(dob_month, data = L3Q1_data) 
+
+#summary statistics
+summary(L3Q1_data$dob_month)
+
+```
+
+The data dob_month are from 1 to 1992. Obviously, the max number is a outliers.
+
+```{r}
+#distribution
+qplot(dob_month, data = L3Q1_data, xlim = c(0,12)) 
+
+```
+
+The distribution of dob_month is unifrom distribution. However, more people are born on Janunary than other months.
+
+###Column15 gender
+
+```{r}
+#distribution
+qplot(gender, data = L3Q1_data) 
+
+#summary statistics
+summary(L3Q1_data$gender)
+
+```
+
+There are more male than female using the twitter.
+
+###Column16,17 mobile_favourites_count, mobile_favourited_count
+
+* mobile_favourites_count
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$mobile_favourites_count)
+
+#distribution
+qplot(mobile_favourites_count, data = L3Q1_data) 
+
+#Outliers
+qplot(1, mobile_favourites_count, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from 0 to 377100, the mean is 152.9 and median is 0.0. The median is not equal to the mean which implicate that there are some outlieres in the data. 
+
+The boxplot also show there are at least 6 outliers above the top whisker.
+
+This histogram couldn't tell us the distribution of the data because the existence of outliers. So I zoom in the range from 0 to 1000
+
+```{r}
+#distribution
+qplot(mobile_favourites_count, data = L3Q1_data, xlim = c(0,1000) ) 
+qplot(mobile_favourites_count, data = L3Q1_data, xlim = c(0,1000), geom = "density")
+
+```
+
+The major number of followers are around 0.
+
+However,the histogram of all count column can't show the distribution of these data. The data need to do some transformation.
+
+
+
+
+
+* mobile_favourited_count
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$mobile_favourited_count)
+
+#distribution
+qplot(mobile_favourited_count, data = L3Q1_data) 
+
+#Outliers
+qplot(1, mobile_favourited_count, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from 0 to 5032000, the mean is 649 and median is 0. The median is not equal to the mean which implicate that there are some outlieres in the data. 
+
+The boxplot also show there are at least 6 outliers above the top whisker.
+
+This histogram couldn't tell us the distribution of the data because the existence of outliers. So I zoom in the range from 0 to 1000
+
+```{r}
+#distribution
+qplot(mobile_favourited_count, data = L3Q1_data, xlim = c(0,1000) ) 
+qplot(mobile_favourited_count, data = L3Q1_data, xlim = c(0,1000), geom = "density")
+
+```
+
+The major number of followers are around 0.
+
+However,the histogram of all count column can't show the distribution of these data. The data need to do some transformation.
+
+
+###Column18 education
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$education)
+
+#distribution
+qplot(education, data = L3Q1_data) 
+
+#Outliers
+qplot(1, education, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from 3 to 24, the mean is 12.5 and median is 13. Histogram shows that these data looks like poisson distribution. And the number of people having 12.5 years education are greater than other years.
+
+The boxplot shows that there are some outliers outside the whiskers.
+
+###Column19 experience
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$experience)
+
+#distribution
+qplot(experience, data = L3Q1_data) 
+
+#Outliers
+qplot(1, experience, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from -32 to 74, the mean is 10.88 and median is 7. Histogram shows that these data looks like normal distribution. And the number of people having no experience are greater than other years. The one possible reason is that people don't choose the experience years and 0 is setted by default. 
+
+However there are some outliers whose value is less than 0. The boxplot also shows some outliers above the top whisker.
+
+###Column20 age
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$age)
+
+#distribution
+qplot(age, data = L3Q1_data) 
+
+#Outliers
+qplot(1, age, data = L3Q1_data, geom = "boxplot")
+
+```
+
+
+The summary statistics show that the range of data is from -6 to 91, the mean is 35.54 and median is 36. Histogram shows that these data looks like normal distribution. And the number of people about 30 years old are greater than other years. The one possible reason is that people don't choose the age and 0 is setted by default. 
+
+However there are some outliers whose value is less than 0. The boxplot also shows some outliers above the top whisker and below the bottom whisker.
+
+
+###Column21 race
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$race)
+
+#distribution
+qplot(race, data = L3Q1_data) 
+
+```
+
+Histogram shows that white is dominant among other races users. 
+
+###Column22 wage
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$wage)
+
+#distribution
+qplot(wage, data = L3Q1_data) 
+
+#Outliers
+qplot(1, wage, data = L3Q1_data, geom = "boxplot")
+
+#normality
+qqnorm(L3Q1_data$wage)
+qqline(L3Q1_data$wage)
+
+```
+
+The summary statistics show that the range of data is from 5 to 105, the mean is 22.97 and median is 20.36. Histogram shows that these data looks like normal distribution. And the number of people having wage around 25 are greater than other years.
+
+However there are some outliers whose value is less than 0. The boxplot also shows some outliers above the top whisker.
+
+
+###Column23,24 retweeted_count, retweet_count
+
+* retweeted_count
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$retweeted_count)
+
+#distribution
+qplot(retweeted_count, data = L3Q1_data) 
+
+#Outliers
+qplot(1, retweeted_count, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from 0 to 705, the mean is 0.9715 and median is 1. 
+
+The boxplot also show there are at least 5 outliers above the top whisker.
+
+This histogram couldn't tell us the distribution of the data because the existence of outliers. So I zoom in the range from 0 to 100
+
+
+```{r}
+#distribution
+qplot(retweeted_count, data = L3Q1_data, xlim = c(0,100) ) 
+qplot(retweeted_count, data = L3Q1_data, xlim = c(0,100), geom = "density")
+
+```
+
+The major number of followers are around 0.
+
+However,the histogram of all count column can't show the distribution of these data. The data need to do some transformation.
+
+* retweet_count
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$retweet_count)
+
+#distribution
+qplot(retweet_count, data = L3Q1_data) 
+
+#Outliers
+qplot(1, retweet_count, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from 0 to 5506, the mean is 52.73 and median is 3. The median is not equal to the mean which implicate that there are some outlieres in the data. 
+
+The boxplot also show there are at least 3 outliers above the top whisker.
+
+This histogram couldn't tell us the distribution of the data because the existence of outliers. So I zoom in the range from 0 to 1000
+
+
+```{r}
+#distribution
+qplot(retweet_count, data = L3Q1_data, xlim = c(0,1000) ) 
+qplot(retweet_count, data = L3Q1_data, xlim = c(0,1000), geom = "density")
+
+```
+
+The major number of followers are around 0.
+
+However,the histogram of all count column can't show the distribution of these data. The data need to do some transformation.
+
+###Column25 height
+
+```{r}
+
+#summary statistics
+summary(L3Q1_data$height)
+
+#distribution
+qplot(height, data = L3Q1_data) 
+
+#Outliers
+qplot(1, height, data = L3Q1_data, geom = "boxplot")
+
+```
+
+The summary statistics show that the range of data is from 1 to 203, the mean is 172 and median is 171.5. 
+
+The boxplot also show there are at least 3 outliers above the top whisker and below the bottom whisker.
+
+This histogram couldn't tell us the distribution of the data because the existence of outliers. So I zoom in the range from 150 to 2000
+
+```{r}
+#distribution
+qplot(retweet_count, data = L3Q1_data, xlim = c(150,200) ) 
+qplot(retweet_count, data = L3Q1_data, xlim = c(150,200), geom = "density")
+
+```
+
+However,the histogram of all count columns can't show the distribution of these data. The data need to do some transformation.
+
+###identify useful raw data & transforms (e.g. log(x))
+
+When I explore the data from each column, I found some *_count data are fat tailed and can be log transformed.
+
+* friend_count
+
+```{r}
+#new distribution
+qplot(x=log(friends_count+1,2), data=L3Q1_data)
+
+#normality
+
+qqnorm(log(((L3Q1_data$friends_count)+1),2))
+qqline(log(((L3Q1_data$friends_count)+1),2))
+
+```
+
+After log transformation, the data seems to be a normal distribution. But qq-plot show the log-data are not fitted very well.
+
+* followers_count
+
+```{r}
+#new distribution
+qplot(x=log(followers_count+1,2), data=L3Q1_data)
+
+#normality
+
+qqnorm(log(((L3Q1_data$followers_count)+1),2))
+qqline(log(((L3Q1_data$followers_count)+1),2))
+
+```
+
+After log transformation, the data seems to be a normal distribution. And qq-plot show the log-data whose range is from -2 to 2 are fitted very well.
+
+* statuses_count
+
+```{r}
+
+#distribution
+qplot(x=log(statuses_count+1,2), data = L3Q1_data)
+
+#normality
+
+qqnorm(log(((L3Q1_data$statuses_count)+1),2))
+qqline(log(((L3Q1_data$statuses_count)+1),2))
+
+```
+
+After log transformation, the data seems to be a normal distribution. And qq-plot show the log-data whose range is from -2 to 2 are fitted very well.
+
+
+* favourites_count
+
+```{r}
+
+#distribution
+qplot(x=log(favourites_count+1,2), data = L3Q1_data) 
+
+#normality
+
+qqnorm(log(((L3Q1_data$favourites_count)+1),2))
+qqline(log(((L3Q1_data$favourites_count)+1),2))
+
+```
+
+After log transformation, the data seems to be a normal distribution. But qq-plot show the log-data are not fitted very well.
+
+* favourited_count
+
+```{r}
+
+#distribution
+qplot(x=log(favourited_count+1,2), data = L3Q1_data)
+
+#normality
+
+qqnorm(log(((L3Q1_data$favourited_count)+1),2))
+qqline(log(((L3Q1_data$favourited_count)+1),2))
+
+```
+
+After log transformation, part of the data seems to be a normal distribution. And qq-plot show the log-data whose range is from 0 to 2 are fitted very well. 
+
+* mobile_favourites_count
+
+```{r}
+
+#distribution
+qplot(x=log(mobile_favourites_count+1,2), data = L3Q1_data)
+
+```
+
+After log transformation, the data are still not good. The data should use another way of transformation.
+
+
+* mobile_favourited_count
+
+```{r}
+
+#distribution
+qplot(x=log(mobile_favourited_count+1,2), data = L3Q1_data)
+
+#normality
+
+qqnorm(log(((L3Q1_data$mobile_favourited_count)+1),2))
+qqline(log(((L3Q1_data$mobile_favourited_count)+1),2))
+
+```
+
+After log transformation, the data are still not good. The data should use another way of transformation.
+
+* retweeted_count 
+
+```{r}
+
+#distribution
+qplot(x=log(retweeted_count+1,2), data = L3Q1_data)
+
+```
+
+After log transformation, the data are still not good. The data should use another way of transformation.
+
+* retweet_count 
+
+```{r}
+
+#distribution
+qplot(x=log(retweet_count+1,2), data = L3Q1_data)
+
+```
+
+After log transformation, the data are still not good. The data should use another way of transformation.
+
+
+###identify data quality problems  
+When I explore the data of each column, some of them have obvious mistake. 
+
+For example: 
+
+1. negative value in friends_count, experience, age 
+
+2. year of birthday is unbelivable which is too early
+
+3. age which is equal 0 is unbelivable
+
+###identify outliers
+
+Just as shown in the above, I use boxplot to find the outliers of each column. 
+
+For example
+
+There are outliers in these columns:
+    1. experience
+    2. age
+    3. height
+    
+###identify subsets of interest & suggest functional relationships
+
+* Gender | Education
+
+```{r}
+
+qplot(education , data = L3Q1_data, color = gender, geom = "freqpoly", binwidth=5)
+
+```
+
+Compare gender and education, the plot shows that the number female is less than male at the same education level.
+
+
+* Gender | Wage
+
+```{r}
+
+qplot(wage , data = L3Q1_data, color = gender, geom = "freqpoly", binwidth=5)
+
+```
+
+Compare gender and wage, the plot shows that the number female is less than male at the same wage level.
+
+* Education | Wage
+
+```{r}
+
+qplot( education , wage, data = L3Q1_data, color = gender) + geom_point()
+
+```
+
+
+Compare education and wage, they have no relationship in this dataset, however, when I consider the gender, at the same education level, female earn less than male. 
+

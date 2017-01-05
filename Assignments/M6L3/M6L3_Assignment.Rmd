@@ -1,0 +1,187 @@
+---
+title: "M6L3_Assignment"
+author: "Xueyi Fan"
+date: "June 30, 2016"
+output: word_document
+---
+
+#Assignment:
+1. Go to the UC Irvine Machine Learning Repository and find a dataset for supervised classification. Every student MUST use a different dataset so you MUST get approved for which you can going to use. This can be the same dataset you used for the unsupervised clustering as long as the data has some labeled data.
+
+2. Classify your data using Support Vector Machines. You can use any method/package for SVMs. Answer the following questions:
+* How well does the classifier perform?
+* Try different kernels. How do they effect its performce?
+* What might improve its performce?
+
+```{r}
+
+library("ggplot2")
+library("e1071")
+library("kernlab")
+
+```
+
+#Answer:
+##Loading the data
+
+Here, I choose the [Breast Cancer Wisconsin (Diagnostic) data set](https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/)
+
+```{r}
+
+data_url <- 'https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data'
+
+data <- read.table(url(data_url), sep = ',')
+
+names(data) <- c('ID number', 'Diagnosis','radius_mean','texure_mean','perimeter_mean','area_mean','smoothness_mean','compactness_mean','concavity_mean','concave_points_mean','symmetry_mean','fractal_dimension_mean', 'radius_SE','texure_SE','perimeter_SE','area_SE','smoothness_SE','compactness_SE','concavity_SE','concave_points_SE','symmetry_SE','fractal_dimension_SE','radius_worst','texure_worst','perimeter_worst','area_worst','smoothness_worst','compactness_worst','concavity_worst','concave_points_worst','symmetry_worst','fractal_dimension_worst') 
+
+head(data)
+str(data)
+summary(data)
+
+#shuffle the data 
+set.seed(123)
+cancer_data <- data[order(runif(nrow(data))),]
+cancer_data[,2]
+
+```
+
+##Classifing my data using Support Vector Machines
+
+```{r}
+#to normalize data
+normalize <- function(x){
+  return((x-min(x))/(max(x)-min(x)))
+}
+cancer.normalized <- as.data.frame(lapply(cancer_data[,3:32],normalize))
+
+#split my data into training part and testing part
+cancer.train <- cancer.normalized[1:500,]
+cancer.test <- cancer.normalized[501:569,]
+cancer.train.target <- cancer_data[1:500,2]
+cancer.test.target <- cancer_data[501:569,2]
+
+#using SVM
+
+cancer.svm <- svm(cancer.train.target~., data= cancer.train, kernel = "linear")
+summary(cancer.svm)
+
+```
+
+##Answer the following questions:
+###How well does the classifier perform? 
+
+```{r}
+
+cancer.svm.pred <- predict(cancer.svm, cancer.test)
+cancer.svm.pred
+
+table(cancer.svm.pred, cancer.test.target)
+
+#look at agreement vs. non-agreement
+agreement <- cancer.svm.pred == cancer.test.target
+table(agreement)
+prop.table(table(agreement))
+
+```
+
+Using SVM to classify the data, there is one misclassification. Although it is not the perfect classification comparing with other supervised machine learning methods in previous two lessons, it still has a good performance.
+
+I also compare the prediction error between multiple linear regression and SVM
+
+```{r}
+
+#create a multiple linear regression model
+
+y <- as.numeric(cancer.train.target == 'B') # y=1 for benign and y=0 for malignant
+
+cancer.lm <- lm(y~., data=cancer.train)
+#make a prediction for each X
+cancer.lm.pred <- predict(cancer.lm, cancer.train)
+
+#function to find the error
+rmse <- function(error){
+  sqrt(mean(error^2))
+}
+
+error <- cancer.lm$residuals
+RMSE.lm.pred <- rmse(error)
+RMSE.lm.pred
+
+#create SVM model
+cancer.svm <- svm(y~., data=cancer.train, kernel = "linear")
+cancer.train.pred<- predict(cancer.svm, cancer.train)
+
+#function to find the error
+error.svm <- y - cancer.train.pred
+RMSE.svm.pred <- rmse(error.svm)
+RMSE.svm.pred
+
+```
+
+Comparing the SVM model with multiple linear regression model, the root mean squared error of SVM is 0.2369482, the root mean squared error of linear model is 0.2252355. They have similar performance.
+
+###Try different kernels. How do they effect its performce?
+
+I will try "linear", "radial", "polynomial", and "sigmoid"
+
+```{r}
+
+#kernel: linear
+svm.linear <- svm(cancer.train.target~., data = cancer.train, kernel = "linear")
+svm.linear.pred <- predict(svm.linear, cancer.test)
+table(svm.linear.pred, cancer.test.target)
+
+#kernel: radial basis
+svm.radial <- svm(cancer.train.target~., data = cancer.train, kernel = "radial")
+svm.radial.pred <- predict(svm.radial, cancer.test)
+table(svm.radial.pred, cancer.test.target)
+
+#kernel: polynomial
+svm.polynomial <- svm(cancer.train.target~., data = cancer.train, kernel = "polynomial")
+svm.polynomial.pred <- predict(svm.polynomial, cancer.test)
+table(svm.polynomial.pred, cancer.test.target)
+
+#kernel: sigmoid
+svm.sigmoid <- svm(cancer.train.target~., data = cancer.train, kernel = "sigmoid")
+svm.sigmoid.pred <- predict(svm.sigmoid, cancer.test)
+table(svm.sigmoid.pred, cancer.test.target)
+
+```
+
+When I used kernel linear, there is only one misclassification; when I used kernel radial basis, there are three misclssifications; when I used polynomial, there are eight misclassifications; when I used kernel sigmoid, there are five misclassifications. 
+
+So different kernels will effect the performance of the model. For my data, choosing the kenel linear will have the best performance.
+
+###What might improve its performance?
+
+Choosing an appropriate kenel and parameters might improve its performance.
+
+After comparing the different kernels, I decide to use linear which has the best performance with other parameters defaulted(epsilon=0.1, cost=1). 
+
+Then I will use cross validation to set best choice of epsilon and cost.
+
+```{r}
+
+#kernel linear
+linear.tune.out <- tune(svm, cancer.normalized,cancer_data[,2],  kernel="linear", ranges= list(epsilon = c(0,1,0.1), cost=2^(-2:10)))
+summary(linear.tune.out)
+
+```
+
+By using cross validation to set best parameter, I can get epsilon=0 and cost = 0.5. So I use kernel linear, epsilon=0 and cost=0.5. 
+
+```{r}
+
+#defaulted parameter 
+svm.radial.default<- svm(cancer.train.target~., data = cancer.train, kernel = "radial")
+svm.radial.pred <- predict(svm.radial.default, cancer.test)
+table(svm.radial.pred, cancer.test.target)
+
+#best performance parameter
+svm.linear.best <- svm(cancer.train.target~., data = cancer.train, kernel = "linear", cost=0.5, epsilon=0)
+svm.linear.best.pred <- predict(svm.linear.best, cancer.test)
+table(svm.linear.best.pred, cancer.test.target)
+
+```
+
+When I use kernel radial and cost=1, epsilon=0.1, there are three misclassifications. I change to use linear and cost=0.5, epsilon=0 and there are only one misclassification. Choosing right kernel and parameters improves the performance.  

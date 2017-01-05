@@ -1,0 +1,98 @@
+---
+title: "M11_Assignment"
+author: "Xueyi Fan"
+date: "July 19, 2016"
+output: word_document
+---
+
+Assignment:
+
+If (and only if) you can’t use some form of Time series analysis help in your research project, then apply a form of Time series analysis to the data the Twitter time series data set M11_Tweets_Miley_Nikki_Taylor.csv (it is online at ‘http://nikbearbrown.com/YouTube/MachineLearning/M11/M11_Tweets_Miley_Nikki_Taylor.csv’). Does it help?
+Note you only need to use ONE forecasting approach from Module 11, so there will be only ONE assignment for all the modules and the same assignment for all the modules.
+
+#Answer:
+
+My project is to use only sequencing data and couldn't use one of the Time series analysis. So here I will use the data the Twitter time series data set [M11_Tweets_Miley_Nikki_Taylor.csv](http://nikbearbrown.com/YouTube/MachineLearning/M11/M11_Tweets_Miley_Nikki_Taylor.csv)
+
+
+##Loading the data
+```{r}
+tweets_url <- "http://nikbearbrown.com/YouTube/MachineLearning/M11/M11_Tweets_Miley_Nikki_Taylor.csv"
+
+tweets <- read.csv(url(tweets_url), header=F)
+names(tweets) <- c("unknow", "Time", "tweets")
+
+head(tweets)
+str(tweets)
+```
+
+```{r}
+library("RCurl")
+library("plyr")
+library("forecast")
+
+
+
+split_time <- function(x){
+  time_list <- strsplit(x, "[ ]")[[1]]
+  time_list <- t(as.data.frame(time_list))
+  time_list
+}
+
+
+time <- as.data.frame(tweets[,2])
+
+new_time<- apply(time, 1, split_time)
+
+new_time<- data.frame(matrix(unlist(new_time), ncol=6, byrow = T))
+colnames(new_time) <- c("week", "month", "day", "hr:mn:sec", "year")
+head(new_time)
+dim(new_time)
+
+seismic <- count(new_time, c("month","day"))
+
+seismic$month <- gsub("Oct", 10, seismic[,1])
+seismic$month <- gsub("Nov", 11, seismic[,1])
+seismic$month <- gsub("Dec", 12, seismic[,1])
+seismic$month <- as.numeric(seismic$month)
+
+#sort the data as data 
+
+seismic <- seismic[order(seismic$month),]
+seismic
+
+seismic_timeseries <- ts(seismic$freq, start = c(10,13), end = c(12,06), frequency = 28)
+plot(seismic_timeseries, xlab = "Date", ylab="number of tweets", main="Tweets number betweet Oct. 13th to Dec. 06th")
+
+#using ARIMA Model
+
+d<- 0:2
+p <- 0:10
+q <- 0:10
+seismic_models <- expand.grid(d=d,p=p,q=q)
+head(seismic_models, n=4)
+
+getTSModelAIC <- function(ts_data, p,d,q){
+  ts_model <- arima(ts_data, order = c(p,d,q))
+  return(ts_model$aic)
+}
+
+
+getTSModelAICSafe <- function(ts_data,p,d,q){
+  result <- tryCatch({getTSModelAIC(ts_data,p,d,q)},error = function(e){Inf})
+}
+
+
+#Pick the best model that has the smallest aic
+seismic_models$aic <- mapply(function(x,y,z)getTSModelAICSafe(seismic_timeseries,x,y,z), seismic_models$p, seismic_models$d, seismic_models$q)
+
+subset(seismic_models, aic == min(aic))
+
+#ARIMA model for best p,d,q, order model
+seismic_model<- arima(seismic_timeseries, order = c(2,2,4))
+summary(seismic_model)
+plot(forecast(seismic_model,10))
+
+```
+
+Using the ARIMA model to predict the number of tweets in the future. The number of posted tweets will decline first then increase. However, the peak of prediction is about 5000. 

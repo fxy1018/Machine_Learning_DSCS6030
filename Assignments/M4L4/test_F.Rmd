@@ -1,0 +1,118 @@
+---
+title: "M4L4"
+author: "Xueyi Fan"
+date: "June 20, 2016"
+output: html_document
+---
+
+I choose the [titanic.raw dataset](http://www.rdatamining.com/data) from RDM which contains Survival data of Titanic passengers.
+
+Loading the data:
+
+```{r}
+library('arules')
+library("arulesViz")
+library('Matrix')
+
+load("/Users/fanxueyi/Downloads/titanic.raw.rdata")
+str(titanic.raw)
+head(titanic.raw)
+
+```
+
+
+###generate a set of 50 or so (non-redundant) rules.
+
+```{r}
+#generate a set rules
+rules.d <- apriori(titanic.raw, appearance = list(rhs=c("Survived=No", "Survived=Yes")))
+rules.d
+inspect(rules.d)
+
+#remove the redundant rules
+rules.d.sorted = sort(rules.d, by="lift")
+subset.matrix <- is.subset(rules.d.sorted, rules.d.sorted)
+subset.matrix[lower.tri(subset.matrix, diag=T)] <- NA 
+redundant <- colSums(subset.matrix, na.rm=T) >=1
+which(redundant)
+rules.d.pruned <- rules.d.sorted[!redundant]
+rules.d.pruned
+
+```
+
+
+### 1. Which rules make sense to you? Highlight the five best and five worst of your rule set. 
+```{r}
+
+inspect(rules.d.pruned)
+
+```
+
+The rules that if the person is crew and no survived, this person is a male makes sense to me. Because we know most of the crew in titanic are male and they sacrificed themselves and left survival opportunies to women and childern. 
+
+The five best rule set are:  
+{Class=Crew,Survived=No}       => {Sex=Male}  
+{Class=Crew}                   => {Sex=Male}  
+{Class=3rd,Sex=Male,Age=Adult} => {Survived=No}   
+{Class=3rd,Sex=Male}           => {Survived=No}   
+{Age=Adult,Survived=No}        => {Sex=Male}    
+
+The five worst rule set are:
+{Class=Crew}                   => {Age=Adult}  
+{Class=1st}                    => {Age=Adult}  
+{Survived=No}                  => {Age=Adult}    
+{Sex=Male}                     => {Age=Adult}    
+{}                             => {Age=Adult}    
+
+
+### 2. How did you choose the level of support and confidence? 
+
+```{r}
+
+rules <- apriori(titanic.raw, parameter = list(support = 0.01, confidence = 0.95, minlen = 2))
+rules
+summary(rules)
+
+```
+
+According to the result of default rules, I want to focus on the rules with high confidence which is higher than 95% because I am not interest in a rule with low confidence. I want to generate enough rules that I can do my research, here, I choose a low support value 0.01.
+
+Finally, I got 9 rules.
+
+### 3. What is the lift and conviction of your best and worst rules? 
+
+Using the rules.d.pruned rules whidh contains a set of 11 rules.
+
+```{r}
+
+#best rule
+interestMeasure(rules.d.pruned[1],measure= "lift")
+
+interestMeasure(rules.d.pruned[1],transactions = titanic.raw,measure= "conviction")
+
+#worst
+interestMeasure(rules.d.pruned[11],measure= "lift")
+
+interestMeasure(rules.d.pruned[11],transactions = titanic.raw,measure= "conviction")
+
+```
+
+The lift of best rules is  1.265851; the conviction of best rules is 47.90398;
+
+The lift of worst rules is 1; the conviction of worst rules is 1
+
+### 4. Visualize your 50 association rules. Where do the best and worst end up in your plot? 
+
+
+```{r}
+plot(rules.d.pruned)
+
+plot(rules.d.pruned, method = "graph", control = list(type="items"))
+
+plot(rules.d.pruned, method = "paracoord", control = list(reorder = TRUE))
+
+```
+
+### 5. Does the model make sense?
+
+This model can figure out the association between different items. 

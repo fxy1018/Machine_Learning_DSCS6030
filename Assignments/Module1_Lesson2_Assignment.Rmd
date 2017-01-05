@@ -1,0 +1,489 @@
+---
+title: "Module01_Lesson2_Assignment"
+output: word_document
+---
+
+## M1L2 Homework Assignment
+
+Xueyi Fan 05/15/2016
+
+_Probability distributions_
+
+* Replicate and plot the fat-tailed Cauchy distributions from https://en.wikipedia.org/wiki/Cauchy_distribution
+* Load the file M01_Lesson_02_Q1.csv
+* Answer the following questions for the data in each column:
+    * How is the data distributed?
+    * What are the summary statistics?
+    * Are there anomalies/outliers?
+    * Try to regenerate the data in each column.
+    * Plot your regenerated data versus the original data using a faceted graph. How does it compare? 
+    
+##Answer:
+
+###Part I:
+
+To replicate and plot the fat-tailed Cauchy distributions from https://en.wikipedia.org/wiki/Cauchy_distribution
+
+* Replication of Density Distributions
+
+```{r}
+library("ggplot2")
+library("reshape2")
+ran_data1 <- rcauchy(5000, location = 0, scale= 0.5)
+ran_data2 <- rcauchy(5000, location = 0, scale= 1)
+ran_data3 <- rcauchy(5000, location = 0, scale= 2)
+ran_data4 <- rcauchy(5000, location = -2, scale= 1)
+
+cauchy_data <- data.frame(A = ran_data1, 
+                          B = ran_data2, 
+                          C = ran_data3, 
+                          D = ran_data4)
+
+cauchy_rnd <- melt(data = cauchy_data)
+
+#PLOT THE DENSITY FUNCTION
+ggplot(cauchy_rnd, aes(x = value)) + geom_density(aes(group=variable,color=variable)) + scale_x_continuous(breaks = seq(-5,5,2) ) + labs(title="Probability density function", y="P(x)", x=" x ")+ xlim(-5,5) + ylim(0,0.7) + theme_light() + scale_colour_discrete("Parameters\n",labels = c("location=0, scale=0.5", "location=0, scale=1","location=0, scale=2","location=-2, scale=1"))
+
+```
+
+* Replication of Cumulative Distribution
+
+
+```{r}
+#PLOT THE CUMULATIVE DISTRIBUTION FUNCTION
+ggplot(cauchy_rnd, aes(x = value)) + stat_ecdf(aes(group=variable,color=variable)) + scale_x_continuous(breaks = seq(-5,5,2) ) + labs(title="Cumulative distribution function", y="P(X<=x)", x=" x ")+ xlim(-5,5) + ylim(-0.1,1.1) + theme_light() + scale_colour_discrete("Parameters\n",labels = c("location=0, scale=0.5", "location=0, scale=1","location=0, scale=2","location=-2, scale=1"))
+
+```
+
+###Part II  
+
+* Load the file M01_Lesson_02_Q1.csv
+
+```{r}
+
+filename <- "/Users/fanxueyi/Documents/NEU Bioinformatics/DSCS6030 Intro Data Mining:Machine Learing/Module1_Getting_to_Know_a_Data_Set/Assignment/M01_Lesson_02_Q1.csv"
+
+L2Q1_data <- read.csv(filename)
+str(L2Q1_data)
+names(L2Q1_data)
+```
+
+
+* Answer the following questions for the data in each column:
+    * How is the data distributed?
+    * What are the summary statistics?
+    * Are there anomalies/outliers?
+    * Try to regenerate the data in each column.
+    * Plot your regenerated data versus the original data using a faceted graph. How does it compare? 
+    
+**Column X** 
+
+**Data Distribution**    
+Plot the data density graph
+```{r}
+
+#Data Distributed
+ggplot(x = X, data = L2Q1_data, aes(X)) + geom_density() + geom_histogram(aes(y=..density..), alpha=1/2)
+
+```
+
+This data looks like coming from **uniform** distribution.
+
+
+###Summarize statistics
+```{r}
+
+summary(L2Q1_data$X)
+head(L2Q1_data$X)
+
+```
+
+The data of Column X are integer, discrete. The range is from 1 to 333. The mean is 167, and the median is 167. 
+
+###Outliers
+
+Using boxplot to find out the outliers
+```{r}
+
+qplot(1, X, data = L2Q1_data) + geom_boxplot()
+
+```
+
+The boxplot shows that there is no outliers for this column.
+
+###Generation of data
+
+According to the density graph, I use unifrom density function to generate my column X data. The number of trails are 333, min is 1 and max is 333 which are same as original data.
+
+```{r}
+
+X_ran <- as.integer(runif(333, min = min(L2Q1_data$X), max = max(L2Q1_data$X)+1))
+
+```
+
+###Plot regenerated data versus the original data using a faceted graph
+
+```{r}
+X_data <- data.frame(A = L2Q1_data$X, B = X_ran)
+colnames(X_data) <- c("Column X", "My Column X")
+X_melt <- melt(data=X_data)
+ggplot(X_melt, aes(x=value)) + geom_density() + geom_histogram(aes(y=..density..,color=variable),alpha=1/2 )+ facet_wrap(~variable)
+
+```
+
+The density plot shows original data and my column X data. The left column is original column X data and The right column is my column X. My generated data is not so well as original data but most of density of values are near 0.003 which is my expect.
+
+**Column A**
+
+**Data Distribution**    
+Plot the data density graph
+```{r}
+
+#Data Distributed
+ggplot(x = A, data = L2Q1_data, aes(A)) + geom_density() + geom_histogram(aes(y=..density..), alpha=1/2)
+
+```
+
+These data looks like coming from **normal** distribution.
+
+Using qq-plot to verify
+
+```{r}
+
+qqnorm(L2Q1_data$A)
+qqline(L2Q1_data$A)
+
+```
+
+Most of the dots from column A are on the diagonal line. The data comes from **normal** distribution.
+
+
+###Summarize statistics
+```{r}
+
+summary(L2Q1_data$A)
+head(L2Q1_data$A)
+
+```
+
+The data of Column A are float number, continuous. The range is from 3.902 to 14.790. The mean is 9.079, and the median is 9.072. 
+
+###Outliers
+
+Using boxplot to find out the outliers
+```{r}
+
+qplot(1, A, data = L2Q1_data) + geom_boxplot()
+
+```
+
+The boxplot shows that there is one outlier for this column which is above the top whisker.
+
+###Generation of data
+
+According to the density graph, I use normal distribution density function to generate my column A data. The number of trails are 333, min is 1 and max is 333 which are same as original data.
+
+```{r}
+
+A_ran <- rnorm(333, mean = mean(L2Q1_data$A), sd = sd(L2Q1_data$A))
+
+```
+
+###Plot regenerated data versus the original data using a faceted graph
+
+```{r}
+A_data <- data.frame(A = L2Q1_data$A, B = A_ran)
+colnames(A_data) <- c("Column A", "My Column A")
+A_melt <- melt(data=A_data)
+ggplot(A_melt, aes(x=value)) + geom_density() + geom_histogram(aes(y=..density..,color=variable),alpha=1/2 )+ facet_wrap(~variable)
+
+```
+
+The density plot shows original data and my column A data. The left column is original column A data and The right column is my column A. My generated data looks like original data. The peak of my data graph is about density 0.2 and density curve is similar to the original data.
+
+**Column B** 
+
+**Data Distribution**    
+Plot the data density graph
+```{r}
+
+#Data Distributed
+ggplot(x = B, data = L2Q1_data, aes(B)) + geom_density() + geom_histogram(aes(y=..density..), alpha=1/2)
+
+```
+
+These data looks like coming from **normal** distribution.
+
+Using qq-plot to verify
+
+```{r}
+
+qqnorm(L2Q1_data$B)
+qqline(L2Q1_data$B)
+
+```
+
+Most of the dots from column B are on the diagonal line. The data comes from **normal** distribution.
+
+
+###Summarize statistics
+```{r}
+
+summary(L2Q1_data$B)
+head(L2Q1_data$B)
+
+```
+
+The data of Column B are float number, continuous. The range is from -3.176 to 2.969. The mean is 0.03063, and the median is 0.03412. 
+
+###Outliers
+
+Using boxplot to find out the outliers
+```{r}
+
+qplot(1, B, data = L2Q1_data) + geom_boxplot()
+
+```
+
+The boxplot shows that there are outliers. Two values are found above the top whisker and one value is below the bottom whisker.
+
+###Generation of data
+
+According to the density graph, I use normal distribution density function to generate my column B data. The number of trails are 333, mean and sd are same as original data.
+
+```{r}
+
+B_ran <- rnorm(333, mean = mean(L2Q1_data$B), sd = sd(L2Q1_data$B))
+
+```
+
+###Plot regenerated data versus the original data using a faceted graph
+
+```{r}
+B_data <- data.frame(A = L2Q1_data$B, B = B_ran)
+colnames(B_data) <- c("Column B", "My Column B")
+B_melt <- melt(data=B_data)
+ggplot(B_melt, aes(x=value)) + geom_density() + geom_histogram(aes(y=..density..,color=variable),alpha=1/2 )+ facet_wrap(~variable)
+
+```
+
+The density plot shows original data and my column B data. The left column is original column B data and The right column is my column B. My generated data looks like original data. The peak of my data graph is a little greater than original data. But the density curve is similar to the original one.
+
+
+**Column C**
+
+**Data Distribution**    
+Plot the data density graph
+```{r}
+
+#Data Distributed
+ggplot(x = C, data = L2Q1_data, aes(C)) + geom_density() + geom_histogram(aes(y=..density..), alpha=1/2, binwidth = 1)
+
+```
+
+These data looks like coming from **binomial** distribution.
+
+
+###Summarize statistics
+```{r}
+
+summary(L2Q1_data$C)
+head(L2Q1_data$C)
+
+```
+
+The data of Column C are integer, discrete. The range is from 2 to 9. The mean is 6.3, and the median is 6.0. 
+
+###Outliers
+
+Using boxplot to find out the outliers
+```{r}
+
+qplot(1, C, data = L2Q1_data) + geom_boxplot()
+
+```
+
+The boxplot shows that there are no outliers. 
+
+###Generation of data
+
+According to the density graph, I use normal distribution density function to generate my column C data. The number of trails are 333, size and prob are same as original data.
+
+Theoretically
+$$mean = n * p$$
+$$var = n * p * (1-p)$$
+
+```{r}
+C_mean <- mean(L2Q1_data$C)
+C_var <- var(L2Q1_data$C)
+C_prob = 1-(C_var/C_mean)
+C_size = C_mean/C_prob 
+C_prob
+C_size
+```
+
+The size of binomail(column C) is 10 and the prob is 0.6
+
+```{r}
+
+C_ran <- rbinom(333,10,0.6)
+
+```
+
+###Plot regenerated data versus the original data using a faceted graph
+
+```{r}
+C_data <- data.frame(A = L2Q1_data$C, B = C_ran)
+colnames(C_data) <- c("Column C", "My Column C")
+C_melt <- melt(data=C_data)
+ggplot(C_melt, aes(x=value)) + geom_density() + geom_histogram(aes(y=..density..,color=variable),binwidth = 1, alpha=1/2 )+ facet_wrap(~variable)
+
+```
+
+The density plot shows original data and my column C data. The left column is original column C data and The right column is my column C. My generated data looks like original data. The density curve is similar to the original one.
+
+
+**Column D**
+
+**Data Distribution**    
+Plot the data density graph
+```{r}
+
+#Data Distributed
+ggplot(x = D, data = L2Q1_data, aes(D)) + geom_density() + geom_histogram(aes(y=..density..),binwidth = 1, alpha=1/2)
+
+```
+
+These data looks like coming from **poisson** distribution.
+
+
+###Summarize statistics
+```{r}
+
+summary(L2Q1_data$D)
+head(L2Q1_data$D)
+
+```
+
+The data of Column D are integer, discrete. The range is from 2 to 18. The mean is 8.919, and the median is 9.0. 
+
+###Outliers
+
+Using boxplot to find out the outliers
+```{r}
+
+qplot(1, D, data = L2Q1_data) + geom_boxplot()
+
+```
+
+The boxplot shows that there are one outliers above the top whisker. 
+
+###Generation of data
+
+According to the density graph, I use normal distribution density function to generate my column D data. The number of trails are 333, size and prob are same as original data.
+
+Theoretically
+$$mean = var = lambda$$
+
+```{r}
+D_lambda <- as.integer(mean(L2Q1_data$D))+1
+
+```
+
+The lambda of poisson (column D) is 9
+```{r}
+
+D_ran <- rpois(333,lambda=9)
+
+```
+
+###Plot regenerated data versus the original data using a faceted graph
+
+```{r}
+D_data <- data.frame(A = L2Q1_data$D, B = D_ran)
+colnames(D_data) <- c("Column D", "My Column D")
+D_melt <- melt(data=D_data)
+ggplot(D_melt, aes(x=value)) + geom_density() + geom_histogram(aes(y=..density..,color=variable),binwidth = 1, alpha=1/2 )+ facet_wrap(~variable)
+
+```
+
+The density plot shows original data and my column D data. The left column is original column D data and The right column is my column D. My generated data looks like original data. But the peak value of my column D is less than original data. The density curve is similar to the original one.
+
+
+**Column E** 
+
+**Data Distribution**    
+
+Plot the data density graph
+
+```{r}
+
+#Data Distributed
+ggplot(x = E, data = L2Q1_data, aes(E)) + geom_density() + geom_histogram(aes(y=..density..),binwidth = 1, alpha=1/2)
+
+```
+
+These data looks like coming from **poisson** distribution.
+
+
+###Summarize statistics
+```{r}
+
+summary(L2Q1_data$E)
+head(L2Q1_data$E)
+
+```
+
+The data of Column E are float number, continuous. The range is from 33.52 to 331.8. The mean is 185.9, and the median is 194.10. 
+
+###Outliers
+
+Using boxplot to find out the outliers
+```{r}
+
+qplot(1, E, data = L2Q1_data) + geom_boxplot()
+
+```
+
+The boxplot shows that there are no outliers.
+
+###Generation of data
+
+According to the density graph, I use unifrom density function to generate my column E data. The number of trails are 333, min and max are same as original data.
+
+```{r}
+
+E_ran <- runif(333, min = min(L2Q1_data$E), max = max(L2Q1_data$E))
+
+```
+
+
+###Plot regenerated data versus the original data using a faceted graph
+
+```{r}
+E_data <- data.frame(A = L2Q1_data$E, B = E_ran)
+colnames(E_data) <- c("Column E", "My Column E")
+E_melt <- melt(data=E_data)
+ggplot(E_melt, aes(x=value)) + geom_histogram(aes(y=..density..,color=variable),binwidth = 1, alpha=1/4 )+ facet_wrap(~variable) + geom_density() 
+
+```
+
+The density plot shows original data and my column E data. The left column is original column E data and The right column is my column E. My generated data looks like original data. The density curve is similar to the original one.
+
+##Summary 
+
+Column  |Distribution |Data Type  
+--------|------------ |---------  
+X       |Uniform      |Int    
+A       |Normal       |Num
+B       |Normal       |Num
+C       |Binomial     |Int
+D       |Poisson      |Int
+E       |Uniform      |Num
+
+
+
+
+
+
+

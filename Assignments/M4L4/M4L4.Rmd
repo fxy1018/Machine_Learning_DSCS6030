@@ -1,0 +1,153 @@
+---
+title: "M4L4_Assignment"
+author: "Xueyi Fan"
+date: "June 13, 2016"
+output: word_document
+---
+#Assignment:
+
+* First, select a transaction dataset from the Frequent Itemset Mining Dataset Repository at http://fimi.ua.ac.be/data/ or another transaction dataset of your choice from the Web. 
+
+* Next, generate a set of 50 or so (non-redundant) rules.
+
+* Finally answer the following questions: 
+
+1. Which rules make sense to you? Highlight the five best and five worst of your rule set. 
+
+2. How did you choose the level of support and confidence? 
+
+3. What is the lift and conviction of your best and worst rules? 
+
+4. Visualize your 50 association rules. Where do the best and worst end up in your plot? 
+
+5. Does the model make sense?
+
+
+
+I choose the [retail.dat dataset](http://fimi.ua.ac.be/data/) from Frequent Itemset Mining Data Repository which contains the (anonymized) retail market basket data from an anonymous Belgian retail store.
+
+Loading the data:
+
+```{r}
+
+require("arules")
+require("arulesViz")
+
+data_url <- 'http://fimi.ua.ac.be/data/retail.dat'
+mydata<- read.transactions(url(data_url))
+
+summary(mydata)
+inspect(mydata[1:5])
+```
+
+
+###generate a set of 50 or so (non-redundant) rules.
+
+```{r}
+
+rules <- apriori(mydata, parameter = list(support = 0.01, confidence = 0.60, target = "rules"))
+rules
+rules.50 <- rules[1:50]
+inspect(rules.50[1:3])
+
+#remove the redundant rules
+rules.50.sorted = sort(rules.50, by="lift")
+subset.matrix <- is.subset(rules.50.sorted, rules.50.sorted)
+subset.matrix[lower.tri(subset.matrix, diag=T)] <- NA 
+redundant <- colSums(subset.matrix, na.rm=T) >=1
+which(redundant)
+rules.50.pruned <- rules.50.sorted[!redundant]
+rules.50.pruned
+
+```
+
+### 1. Which rules make sense to you? Highlight the five best and five worst of your rule set. 
+```{r}
+
+inspect(rules.50.pruned[1:5])
+inspect(rules.50.sorted[42:46])
+
+```
+
+According to the result the rule {110,39} => {38} which means the person who but the item 110 and 39 will but item 38. Because this rule have a high confidence which is 98.9%. 
+
+The five best rule set are:  
+{110,39} => {38}  
+{170,48} => {38}  
+{110,48} => {38}  
+{170,39} => {38}  
+{170}    => {38}
+
+The five worst rule set are:
+{12925}  => {39}  
+{147}    => {39}  
+{110,38} => {39}  
+{237}    => {39}  
+{110}    => {39}
+
+### 2. How did you choose the level of support and confidence? 
+
+If I use default parameters, it will not generate any rules, because the default parameters of apriori function are support = 0.1, confidence = 0.8, maxlen = 10;
+
+I want to focus on more rules with lower confidence which is 60% and a low support value 0.01. So I will generate enough rules that I can use them to do my research.
+
+Finally, I got 46 rules.
+
+### 3. What is the lift and conviction of your best and worst rules? 
+
+
+```{r}
+
+#best rule
+interestMeasure(rules.50.pruned[1],measure= "lift")
+
+interestMeasure(rules.50.pruned[1],transactions = mydata,measure= "conviction")
+
+#worst
+interestMeasure(rules.50.pruned[46],measure= "lift")
+
+interestMeasure(rules.50.pruned[46],transactions = mydata,measure= "conviction")
+
+```
+
+The lift of best rules is 5.5918; the conviction of best rules is 76.20158;
+
+The lift of worst rules is 1.045703; the conviction of worst rules is 1.065849
+
+### 4. Visualize your 50 association rules. Where do the best and worst end up in your plot? 
+
+```{r}
+#all rules together
+plot(rules.50.pruned)
+plot(rules.50.pruned, method = "graph", control = list(type="items"))
+plot(rules.50.pruned, method = "paracoord", control = list(reorder = TRUE))
+
+#the best
+plot(rules.50.pruned[1])
+plot(rules.50.pruned[1], method = "graph", control = list(type="items"))
+
+#the worst
+plot(rules.50.pruned[46])
+plot(rules.50.pruned[46], method = "graph", control = list(type="items"))
+
+```
+
+Scatter plot:
+
+The best rule is on the support 0.02, confidence close to 1, lift about 3.6. 
+
+The worst ruleis on the support 0.013, confidence close to 0.6, lift 1.025.
+
+Graph:
+
+This graph displays the rule using arrow. 
+
+The best rule is shown that item 110 and 39 point to a same cycle and point out to item 38.
+
+The worst rule is shown that item 413 point to the cycle and point out to item 39.
+
+### 5. Does the model make sense?
+
+This model makes sense. This model can figure out the association between different items, and some of the rules have a high confidence as well as lift or support. However, I can't figure out more information of these rules without a better description of the data.
+
+
